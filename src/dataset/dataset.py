@@ -22,12 +22,16 @@ class WSCMDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
-
+    # 在dataset.py中添加数据归一化
     def __getitem__(self, idx):
-        # 确保返回的数据是float32类型，而不是double/float64类型
-        return torch.tensor(self.data[idx], dtype=torch.float32), torch.tensor(self.labels[idx], dtype=torch.float32)
-
-
+        # 获取数据并转换为float32
+        data = torch.tensor(self.data[idx], dtype=torch.float32)
+        label = torch.tensor(self.labels[idx], dtype=torch.float32)
+        
+        # 对输入数据进行归一化（如果数据范围不是[0,1]）
+        data = (data - data.mean()) / (data.std() + 1e-8)  # 避免除零错误
+        
+        return data, label
 
 if __name__=="__main__":
     dataset = WSCMDataset('data/test')
