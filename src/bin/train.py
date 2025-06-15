@@ -8,13 +8,13 @@ from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import numpy as np
-
+from pathlib import Path
+import matplotlib.pyplot as plt
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.dataset.dataset import WSCMDataset
-from src.model.cnn import SignalCNN
-from src.model.cnn_2d import ImprovedSignal2DCNNLarge
+from src.model.cnn import WCDMACNN
 from src.loss.loss import CombinedLoss
 
 def get_args():
@@ -22,10 +22,10 @@ def get_args():
     parser.add_argument('--data_dir', type=str, default='data/train', help='训练数据目录')
     parser.add_argument('--test_dir', type=str, default='data/test', help='测试数据目录')
     parser.add_argument('--batch_size', type=int, default=64, help='批大小')
-    parser.add_argument('--epochs', type=int, default=800, help='训练轮数')
+    parser.add_argument('--epochs', type=int, default=300, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
-    parser.add_argument('--warmup_epochs', type=int, default=5, help='预热轮数')
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
     parser.add_argument('--log_dir', type=str, default='logs', help='TensorBoard日志目录')
     parser.add_argument('--save_dir', type=str, default='checkpoints', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
@@ -51,6 +51,15 @@ def train(args):
     os.makedirs(args.log_dir, exist_ok=True)
     os.makedirs(args.save_dir, exist_ok=True)
     
+
+    data_dir = Path(args.data_dir)
+
+    args.log_dir = Path(args.log_dir) / f'{data_dir.name}'
+    args.save_dir = Path(args.save_dir) / f'{data_dir.name}'
+
+    args.log_dir.mkdir(parents=True, exist_ok=True)
+    args.save_dir.mkdir(parents=True, exist_ok=True)
+
     # 初始化TensorBoard
     writer = SummaryWriter(log_dir=args.log_dir)
     
@@ -70,7 +79,7 @@ def train(args):
     val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 初始化模型
-    model = ImprovedSignal2DCNNLarge(input_channels=4, output_dim=160)
+    model = WCDMACNN()
     model = model.to(args.device)
     
     # 定义损失函数和优化器
@@ -82,7 +91,7 @@ def train(args):
     
     # 训练循环
     best_val_loss = float('inf')
-    
+    train_losses, val_losses, lrs = [], [], []
     for epoch in range(args.epochs):
         # 训练阶段
         model.train()
@@ -97,7 +106,6 @@ def train(args):
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, targets)
-            # loss, mse_val, bce_val = criterion(outputs, targets, return_parts=True)
             
             # 反向传播
             loss.backward()
@@ -108,14 +116,8 @@ def train(args):
             # 更新统计
             train_loss += loss.item() * inputs.size(0)
             train_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
-            # train_pbar.set_postfix({
-            #                         "loss": f"{loss.item():.4f}",
-            #                         "mse": f"{mse_val.item():.4f}",
-            #                         "bce": f"{bce_val.item():.4f}"
-            #                     })
-        
+
         train_loss /= train_size
-        
         # 验证阶段
         model.eval()
         val_loss = 0.0
@@ -138,10 +140,15 @@ def train(args):
         
         val_loss /= val_size
         
+
         # 更新学习率
         current_lr = optimizer.param_groups[0]['lr']
         scheduler.step()
         
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        lrs.append(current_lr)
+
         # 记录到TensorBoard
         writer.add_scalar('Loss/train', train_loss, epoch)
         writer.add_scalar('Loss/val', val_loss, epoch)
@@ -172,6 +179,45 @@ def train(args):
     
     writer.close()
     print("训练完成！")
+
+
+    # 绘制训练损失曲线
+    plt.figure(figsize=(12, 8))
+    
+    # 损失曲线
+    plt.subplot(2, 1, 1)
+    plt.plot(train_losses, 'b-', linewidth=2, label='Training Loss')
+    plt.plot(val_losses, 'r-', linewidth=2, label='Validation Loss')
+    plt.title('Training and Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True)
+    
+    # 学习率曲线
+    plt.subplot(2, 1, 2)
+    plt.plot(lrs, 'g-', linewidth=2)
+    plt.title('Learning Rate Schedule')
+    plt.xlabel('Epoch')
+    plt.ylabel('Learning Rate')
+    plt.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig(args.save_dir / 'training_progress.png', dpi=300)
+    print('训练过程曲线已保存为 training_progress.png')
+    
+    # 绘制损失曲线 (仅损失)
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_losses, 'b-', linewidth=2, label='Training Loss')
+    plt.plot(val_losses, 'r-', linewidth=2, label='Validation Loss')
+    plt.title('Training and Validation Loss', fontsize=14)
+    plt.xlabel('Epoch', fontsize=12)
+    plt.ylabel('Loss', fontsize=12)
+    plt.legend(fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    plt.savefig(args.save_dir / 'loss_curve.png', dpi=300)
+    print('损失曲线已保存为 loss_curve.png')
 
 
 if __name__ == "__main__":
