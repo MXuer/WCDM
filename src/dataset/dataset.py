@@ -36,10 +36,6 @@ class WSCMDataset(Dataset):
 if __name__=="__main__":
     dataset = WSCMDataset('data/test')
     dataloader = DataLoader(dataset, batch_size=100, shuffle=True)
-    # for item in dataloader:
-    #     inp, outp = item
-    #     print(inp.size(), outp.size())
-    #     break
     batch = next(iter(dataloader))
     x = batch[0]
     print("Input shape:", x.shape)

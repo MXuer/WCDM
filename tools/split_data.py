@@ -15,8 +15,8 @@ def write2dataset(dataset, output_file):
         f.create_dataset('output', data=y_arr)
 
 def main():
-    data_dir = Path("SF16_dataSet_160Bit_HDF5_20250613_203530")
-    exp_dir = Path("SF16_dataSet_160Bit_HDF5_20250613_203530_split")
+    data_dir = Path("../SF16_dataSet_160Bit_HDF5_20250613_203530")
+    exp_dir = Path("data")
     train_dir = exp_dir / "train"
     test_dir = exp_dir / "test"
     train_dir.mkdir(parents=True, exist_ok=True)
