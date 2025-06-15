@@ -14,7 +14,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.dataset.dataset import WSCMDataset
 from src.model.cnn import SignalCNN
-
+from src.model.cnn_simple import SimpleSignalCNN
+from src.loss.loss import CombinedLoss
 
 def get_args():
     parser = argparse.ArgumentParser(description='训练WCDM模型')
@@ -69,11 +70,11 @@ def train(args):
     val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 初始化模型
-    model = SignalCNN(input_channels=4, output_dim=160)
+    model = SimpleSignalCNN(input_channels=4, output_dim=160)
     model = model.to(args.device)
     
     # 定义损失函数和优化器
-    criterion = nn.BCELoss()  # 二元交叉熵损失，适用于0/1输出
+    criterion = CombinedLoss()  # 二元交叉熵损失，适用于0/1输出
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
     # 学习率调度器（带预热）

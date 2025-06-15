@@ -50,7 +50,7 @@ def test(args):
     
     # 加载模型
     model = SignalCNN(input_channels=4, output_dim=160)
-    checkpoint = torch.load(args.model_path, map_location=args.device)
+    checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(args.device)
     model.eval()
