@@ -28,6 +28,12 @@ class WSCMDataset(Dataset):
         data = torch.tensor(self.data[idx], dtype=torch.float32)
         label = torch.tensor(self.labels[idx], dtype=torch.float32)
         
+        # 将数据从 (4, 10240, 3) 转置为 (3, 10240, 4)
+        # 原始形状: (channels, width, height)
+        # 目标形状: (new_channels, new_width, new_height)
+        # 对应到 (3, 10240, 4)
+        data = data.permute(2, 1, 0) # permute(height_dim, width_dim, channel_dim)
+
         # 对输入数据进行归一化（如果数据范围不是[0,1]）
         data = (data - data.mean()) / (data.std() + 1e-8)  # 避免除零错误
         

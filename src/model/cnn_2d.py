@@ -5,43 +5,43 @@ class Signal2DCNN(nn.Module):
     def __init__(self, input_channels=4, output_dim=160):
         super(Signal2DCNN, self).__init__()
         
-        # 输入形状: (N, C_in, H, W) = (N, 4, 10240, 3)
+        # 输入形状: (N, C_in, H, W) = (N, 3, 10240, 4)
         # 使用二维卷积网络处理信号数据
         self.features = nn.Sequential(
             # 第一层卷积
-            nn.Conv2d(input_channels, 32, kernel_size=(7, 3), stride=(2, 1), padding=(3, 1)),
-            # 输出: (N, 32, 5120, 3)
+            nn.Conv2d(input_channels, 32, kernel_size=(7, 4), stride=(2, 1), padding=(3, 0)),
+            # 输出: (N, 32, 5120, 1)
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)),
-            # 输出: (N, 32, 2560, 3)
+            # 输出: (N, 32, 2560, 1)
             
             # 第二层卷积
-            nn.Conv2d(32, 64, kernel_size=(5, 3), stride=(2, 1), padding=(2, 1)),
-            # 输出: (N, 64, 1280, 3)
+            nn.Conv2d(32, 64, kernel_size=(5, 1), stride=(2, 1), padding=(2, 0)),
+            # 输出: (N, 64, 1280, 1)
             nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)),
-            # 输出: (N, 64, 640, 3)
+            # 输出: (N, 64, 640, 1)
             
             # 第三层卷积
-            nn.Conv2d(64, 128, kernel_size=(5, 3), stride=(2, 1), padding=(2, 1)),
-            # 输出: (N, 128, 320, 3)
+            nn.Conv2d(64, 128, kernel_size=(5, 1), stride=(2, 1), padding=(2, 0)),
+            # 输出: (N, 128, 320, 1)
             nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)),
-            # 输出: (N, 128, 160, 3)
+            # 输出: (N, 128, 160, 1)
             
             # 第四层卷积
-            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            # 输出: (N, 256, 160, 3)
+            nn.Conv2d(128, 256, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0)),
+            # 输出: (N, 256, 160, 1)
             nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(1, 3), stride=(1, 3)),
-            # 输出: (N, 256, 160, 1)
+            nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)),
+            # 输出: (N, 256, 80, 1)
         )
         
-        # 特征提取后的形状: (N, 256, 160, 1)
+        # 特征提取后的形状: (N, 256, 80, 1)
         # 使用自适应池化确保输出尺寸固定
         self.adaptive_pool = nn.AdaptiveAvgPool2d((40, 1))
         # 输出: (N, 256, 40, 1)
@@ -49,7 +49,7 @@ class Signal2DCNN(nn.Module):
         # 全连接层
         self.classifier = nn.Sequential(
             nn.Flatten(),  # 展平为 (N, 256*40*1) = (N, 10240)
-            nn.Linear(10240, 1024),
+            nn.Linear(256 * 40 * 1, 1024),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(1024, 512),
@@ -76,8 +76,8 @@ class Signal2DCNN(nn.Module):
                 nn.init.constant_(m.bias, 0)
     
     def forward(self, x):
-        # x 初始形状: (N, 4, 10240, 3)
-        x = self.features(x)  # 输出: (N, 256, 160, 1)
+        # x 初始形状: (N, 3, 10240, 4)
+        x = self.features(x)  # 输出: (N, 256, 80, 1)
         x = self.adaptive_pool(x)  # 输出: (N, 256, 40, 1)
         x = self.classifier(x)  # 输出: (N, 160)
         return x
@@ -85,11 +85,11 @@ class Signal2DCNN(nn.Module):
 # 示例用法（用于测试模型结构）:
 if __name__ == '__main__':
     # 创建一个测试输入张量
-    # batch_size = 10, channels = 4, height = 10240, width = 3
-    test_input = torch.randn(10, 4, 10240, 3)
+    # batch_size = 10, channels = 3, height = 10240, width = 4
+    test_input = torch.randn(10, 3, 10240, 4)
     
     # 实例化模型
-    model = Signal2DCNN(input_channels=4, output_dim=160)
+    model = Signal2DCNN(input_channels=3, output_dim=160)
     
     # 将输入传递给模型
     output = model(test_input)
