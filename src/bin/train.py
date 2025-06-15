@@ -100,6 +100,8 @@ def train(args):
             
             # 反向传播
             loss.backward()
+            # 添加梯度裁剪，防止梯度爆炸
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             
             # 更新统计

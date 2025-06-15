@@ -4,94 +4,104 @@ import torch.nn as nn
 class SignalCNN(nn.Module):
     def __init__(self, input_channels=4, output_dim=160):
         super(SignalCNN, self).__init__()
-        # Initial 2D convolution to process the (H, W) = (10240, 3) part 
-        # for each of the input_channels.
-        # Input shape: (N, C_in, H, W) = (N, 4, 10240, 3)
-        self.conv2d_initial = nn.Sequential(
-            nn.Conv2d(input_channels, 16, kernel_size=(1, 3), stride=(1, 1), padding=(0, 0)),
-            # Output: (N, 16, 10240, 1)
-            nn.BatchNorm2d(16),
-            nn.ReLU()
-        )
-        # After this, we squeeze the last dimension to get (N, 16, 10240) for 1D convolutions.
-
-        # 1D Convolutional blocks
-        self.conv1d_block1 = nn.Sequential(
-            nn.Conv1d(16, 32, kernel_size=7, stride=1, padding=3), # padding='same' essentially before pooling
-            nn.BatchNorm1d(32),
+        
+        # 输入形状: (N, C_in, H, W) = (N, 4, 10240, 3)
+        # 使用二维卷积网络处理信号数据
+        self.features = nn.Sequential(
+            # 第一层卷积
+            nn.Conv2d(input_channels, 32, kernel_size=(7, 3), stride=(2, 1), padding=(3, 1)),
+            # 输出: (N, 32, 5120, 3)
+            nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.MaxPool1d(kernel_size=4, stride=4) # Output length: 10240 / 4 = 2560
-        )
-        self.conv1d_block2 = nn.Sequential(
-            nn.Conv1d(32, 64, kernel_size=5, stride=1, padding=2),
-            nn.BatchNorm1d(64),
+            nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)),
+            # 输出: (N, 32, 2560, 3)
+            
+            # 第二层卷积
+            nn.Conv2d(32, 64, kernel_size=(5, 3), stride=(2, 1), padding=(2, 1)),
+            # 输出: (N, 64, 1280, 3)
+            nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.MaxPool1d(kernel_size=4, stride=4) # Output length: 2560 / 4 = 640
-        )
-        self.conv1d_block3 = nn.Sequential(
-            nn.Conv1d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm1d(128),
+            nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)),
+            # 输出: (N, 64, 640, 3)
+            
+            # 第三层卷积
+            nn.Conv2d(64, 128, kernel_size=(5, 3), stride=(2, 1), padding=(2, 1)),
+            # 输出: (N, 128, 320, 3)
+            nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.MaxPool1d(kernel_size=4, stride=4) # Output length: 640 / 4 = 160
-        )
-        self.conv1d_block4 = nn.Sequential(
-            nn.Conv1d(128, 256, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm1d(256),
+            nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)),
+            # 输出: (N, 128, 160, 3)
+            
+            # 第四层卷积
+            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
+            # 输出: (N, 256, 160, 3)
+            nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.MaxPool1d(kernel_size=4, stride=4) # Output length: 160 / 4 = 40
+            nn.MaxPool2d(kernel_size=(1, 3), stride=(1, 3)),
+            # 输出: (N, 256, 160, 1)
         )
-        self.conv1d_block5 = nn.Sequential(
-            nn.Conv1d(256, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm1d(512),
-            nn.ReLU(),
-            nn.MaxPool1d(kernel_size=4, stride=4) # Output length: 40 / 4 = 10
-        )
-
-        # Flatten and Fully Connected layers
-        # Output from conv1d_block5 is (N, 512, 10)
-        # Flattened size: 512 * 10 = 5120
-        self.fc_block = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(512 * 10, 1024),
+        
+        # 特征提取后的形状: (N, 256, 160, 1)
+        # 使用自适应池化确保输出尺寸固定
+        self.adaptive_pool = nn.AdaptiveAvgPool2d((40, 1))
+        # 输出: (N, 256, 40, 1)
+        
+        # 全连接层
+        self.classifier = nn.Sequential(
+            nn.Flatten(),  # 展平为 (N, 256*40*1) = (N, 10240)
+            nn.Linear(10240, 1024),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.3),
             nn.Linear(512, output_dim),
-            nn.Sigmoid() # Sigmoid for 0/1 output, suitable for BCELoss
+            nn.Sigmoid()  # 用于二分类任务
         )
-
-    def forward(self, x):
-        # x initial shape: (N, 4, 10240, 3)
-        x = self.conv2d_initial(x) # Output: (N, 16, 10240, 1)
-        x = x.squeeze(-1) # Output: (N, 16, 10240), ready for 1D conv
-
-        x = self.conv1d_block1(x) # Output: (N, 32, 2560)
-        x = self.conv1d_block2(x) # Output: (N, 64, 640)
-        x = self.conv1d_block3(x) # Output: (N, 128, 160)
-        x = self.conv1d_block4(x) # Output: (N, 256, 40)
-        x = self.conv1d_block5(x) # Output: (N, 512, 10)
         
-        x = self.fc_block(x) # Output: (N, 160)
+        # 初始化权重
+        self._initialize_weights()
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
+    
+    def forward(self, x):
+        # x 初始形状: (N, 4, 10240, 3)
+        x = self.features(x)  # 输出: (N, 256, 160, 1)
+        x = self.adaptive_pool(x)  # 输出: (N, 256, 40, 1)
+        x = self.classifier(x)  # 输出: (N, 160)
         return x
 
-# Example usage (for testing the model structure):
+# 示例用法（用于测试模型结构）:
 if __name__ == '__main__':
-    # Create a dummy input tensor with the specified dimensions
+    # 创建一个测试输入张量
     # batch_size = 10, channels = 4, height = 10240, width = 3
     test_input = torch.randn(10, 4, 10240, 3)
     
-    # Instantiate the model
+    # 实例化模型
     model = SignalCNN(input_channels=4, output_dim=160)
     
-    # Pass the input through the model
+    # 将输入传递给模型
     output = model(test_input)
     
-    # Print the output shape to verify
-    print(f"Input shape: {test_input.shape}")
-    print(f"Output shape: {output.shape}") # Expected: torch.Size([10, 160])
-
-    # Check if output values are between 0 and 1 (due to Sigmoid)
-    print(f"Min output value: {output.min().item()}")
-    print(f"Max output value: {output.max().item()}")
+    # 打印输出形状进行验证
+    print(f"输入形状: {test_input.shape}")
+    print(f"输出形状: {output.shape}")  # 预期: torch.Size([10, 160])
+    
+    # 检查输出值是否在0和1之间（由于Sigmoid激活函数）
+    print(f"最小输出值: {output.min().item()}")
+    print(f"最大输出值: {output.max().item()}")
+    
+    # 计算模型参数数量
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"模型总参数数量: {total_params:,}")
