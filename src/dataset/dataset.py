@@ -1,7 +1,7 @@
 import h5py
 import os
 from tqdm import tqdm
-
+import torch
 from torch.utils.data import Dataset, DataLoader
 
 from glob import glob
@@ -24,7 +24,8 @@ class WSCMDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx], self.labels[idx]
+        # 确保返回的数据是float32类型，而不是double/float64类型
+        return torch.tensor(self.data[idx], dtype=torch.float32), torch.tensor(self.labels[idx], dtype=torch.float32)
 
 
 
