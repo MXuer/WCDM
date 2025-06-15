@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class SignalCNN(nn.Module):
-    def __init__(self, input_channels=4, output_dim=160):
+    def __init__(self, input_channels=3, output_dim=160):
         super(SignalCNN, self).__init__()
         
         # 输入形状: (N, C_in, H, W) = (N, 3, 10240, 4)

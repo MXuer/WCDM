@@ -70,7 +70,7 @@ def train(args):
     val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 初始化模型
-    model = Signal2DCNN(input_channels=4, output_dim=160)
+    model = Signal2DCNN(input_channels=3, output_dim=160)
     model = model.to(args.device)
     
     # 定义损失函数和优化器
