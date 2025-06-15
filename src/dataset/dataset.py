@@ -7,14 +7,15 @@ from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
 
 class WSCMDataset(Dataset):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, norm=False):
         self.data, self.labels = self.read_h5_files(data_dir)
+        self.norm = norm
         
     def read_h5_files(self, data_dir):
         h5_files = list(Path(data_dir).rglob('*.h5'))
         data = []
         label = []
-        for h5_file in tqdm(h5_files):
+        for h5_file in h5_files:
             with h5py.File(h5_file, 'r') as f:
                 data.extend(f['input'])
                 label.extend(f['output'])
@@ -28,7 +29,8 @@ class WSCMDataset(Dataset):
         data = torch.tensor(self.data[idx], dtype=torch.float32)
         label = torch.tensor(self.labels[idx], dtype=torch.float32)
         data = data.permute(2, 0, 1)
-        data = (data - data.mean()) / (data.std() + 1e-6)
+        if self.norm:
+            data = (data - data.mean()) / (data.std() + 1e-6)
         return data, label
 
 if __name__=="__main__":

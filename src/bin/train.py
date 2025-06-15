@@ -17,6 +17,8 @@ from src.dataset.dataset import WSCMDataset
 from src.model.cnn import WCDMACNN
 from src.loss.loss import CombinedLoss
 
+torch.manual_seed(42)
+
 def get_args():
     parser = argparse.ArgumentParser(description='训练WCDM模型')
     parser.add_argument('--data_dir', type=str, default='data/train', help='训练数据目录')
@@ -26,8 +28,8 @@ def get_args():
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
     parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='logs', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='checkpoints', help='模型保存目录')
+    parser.add_argument('--log_dir', type=str, default='logs_no_norm', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='checkpoints_no_norm', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
     return parser.parse_args()
 
