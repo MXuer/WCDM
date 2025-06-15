@@ -27,22 +27,18 @@ class WSCMDataset(Dataset):
         # 获取数据并转换为float32
         data = torch.tensor(self.data[idx], dtype=torch.float32)
         label = torch.tensor(self.labels[idx], dtype=torch.float32)
-        
-        # 将数据从 (4, 10240, 3) 转置为 (3, 10240, 4)
-        # 原始形状: (channels, width, height)
-        # 目标形状: (new_channels, new_width, new_height)
-        # 对应到 (3, 10240, 4)
-        data = data.permute(2, 1, 0) # permute(height_dim, width_dim, channel_dim)
-
-        # 对输入数据进行归一化（如果数据范围不是[0,1]）
-        data = (data - data.mean()) / (data.std() + 1e-8)  # 避免除零错误
-        
+        data = (data - data.mean()) / (data.std() + 1e-6)
         return data, label
 
 if __name__=="__main__":
     dataset = WSCMDataset('data/test')
-    dataloader = DataLoader(dataset, batch_size=10, shuffle=True)
-    for item in dataloader:
-        inp, outp = item
-        print(inp.size(), outp.size())
-        break
+    dataloader = DataLoader(dataset, batch_size=100, shuffle=True)
+    # for item in dataloader:
+    #     inp, outp = item
+    #     print(inp.size(), outp.size())
+    #     break
+    batch = next(iter(dataloader))
+    x = batch[0]
+    print("Input shape:", x.shape)
+    print("Mean:", x.mean().item(), "Std:", x.std().item())
+    print("Max:", x.max().item(), "Min:", x.min().item())

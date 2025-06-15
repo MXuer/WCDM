@@ -82,6 +82,69 @@ class Signal2DCNN(nn.Module):
         x = self.adaptive_pool(x)  # 输出: (N, 256, 40, 1)
         x = self.classifier(x)  # 输出: (N, 160)
         return x
+    
+
+class ResidualBlock(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(channels),
+            nn.ReLU(),
+            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(channels),
+        )
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        return self.relu(x + self.block(x))
+
+
+class ImprovedSignal2DCNNLarge(nn.Module):
+    def __init__(self, input_channels=4, output_dim=160):
+        super(ImprovedSignal2DCNNLarge, self).__init__()
+
+        self.features = nn.Sequential(
+            nn.Conv2d(input_channels, 64, kernel_size=(7, 1), stride=(2, 1), padding=(3, 0)),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+
+            nn.Conv2d(64, 128, kernel_size=(5, 1), stride=(2, 1), padding=(2, 0)),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+
+            ResidualBlock(128),
+
+            nn.Conv2d(128, 128, kernel_size=(1, 3), stride=(1, 1), padding=(0, 1)),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+
+            nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)),
+
+            nn.Conv2d(128, 256, kernel_size=(3, 1), stride=(2, 1), padding=(1, 0)),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+
+            ResidualBlock(256),
+
+            nn.AdaptiveAvgPool2d((40, 1))  # (B, 256, 40, 1)
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Flatten(),  # (B, 256 * 40)
+            nn.Linear(256 * 40, 1024),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(512, output_dim),
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.classifier(x)
+        return x
 
 # 示例用法（用于测试模型结构）:
 if __name__ == '__main__':

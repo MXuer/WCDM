@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.dataset.dataset import WSCMDataset
 from src.model.cnn import SignalCNN
-from src.model.cnn_simple import SimpleSignalCNN
+from src.model.cnn_2d import ImprovedSignal2DCNNLarge
 
 
 def get_args():
@@ -50,7 +50,7 @@ def test(args):
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 加载模型
-    model = SimpleSignalCNN(input_channels=3, output_dim=160)
+    model = ImprovedSignal2DCNNLarge(input_channels=4, output_dim=160)
     checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(args.device)
@@ -70,6 +70,7 @@ def test(args):
             
             # 前向传播
             outputs = model(inputs)
+            outputs = torch.sigmoid(outputs)
             loss = criterion(outputs, targets)
             
             # 计算指标

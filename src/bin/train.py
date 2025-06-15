@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.dataset.dataset import WSCMDataset
 from src.model.cnn import SignalCNN
-from src.model.cnn_2d import Signal2DCNN
+from src.model.cnn_2d import ImprovedSignal2DCNNLarge
 from src.loss.loss import CombinedLoss
 
 def get_args():
@@ -22,7 +22,7 @@ def get_args():
     parser.add_argument('--data_dir', type=str, default='data/train', help='训练数据目录')
     parser.add_argument('--test_dir', type=str, default='data/test', help='测试数据目录')
     parser.add_argument('--batch_size', type=int, default=64, help='批大小')
-    parser.add_argument('--epochs', type=int, default=100, help='训练轮数')
+    parser.add_argument('--epochs', type=int, default=800, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
     parser.add_argument('--warmup_epochs', type=int, default=5, help='预热轮数')
@@ -70,7 +70,7 @@ def train(args):
     val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 初始化模型
-    model = Signal2DCNN(input_channels=3, output_dim=160)
+    model = ImprovedSignal2DCNNLarge(input_channels=4, output_dim=160)
     model = model.to(args.device)
     
     # 定义损失函数和优化器
@@ -97,6 +97,7 @@ def train(args):
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, targets)
+            # loss, mse_val, bce_val = criterion(outputs, targets, return_parts=True)
             
             # 反向传播
             loss.backward()
@@ -107,6 +108,11 @@ def train(args):
             # 更新统计
             train_loss += loss.item() * inputs.size(0)
             train_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+            # train_pbar.set_postfix({
+            #                         "loss": f"{loss.item():.4f}",
+            #                         "mse": f"{mse_val.item():.4f}",
+            #                         "bce": f"{bce_val.item():.4f}"
+            #                     })
         
         train_loss /= train_size
         
@@ -119,12 +125,16 @@ def train(args):
             for inputs, targets in val_pbar:
                 inputs = inputs.to(args.device)
                 targets = targets.to(args.device).float()
-                
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
                 
                 val_loss += loss.item() * inputs.size(0)
                 val_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+
+                with torch.no_grad():
+                    probs = torch.sigmoid(outputs)
+                    print("Pred mean:", probs.mean().item(), "Pred std:", probs.std().item())
         
         val_loss /= val_size
         
