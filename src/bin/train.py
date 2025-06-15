@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.dataset.dataset import WSCMDataset
 from src.model.cnn import SignalCNN
-from src.model.cnn_simple import SimpleSignalCNN
+from src.model.cnn_2d import Signal2DCNN
 from src.loss.loss import CombinedLoss
 
 def get_args():
@@ -70,7 +70,7 @@ def train(args):
     val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 初始化模型
-    model = SimpleSignalCNN(input_channels=4, output_dim=160)
+    model = Signal2DCNN(input_channels=4, output_dim=160)
     model = model.to(args.device)
     
     # 定义损失函数和优化器

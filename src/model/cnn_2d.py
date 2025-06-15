@@ -2,14 +2,15 @@ import torch
 import torch.nn as nn
 
 class Signal2DCNN(nn.Module):
-    def __init__(self, input_channels=4, output_dim=160):
+    def __init__(self, input_channels=3, output_dim=160):
         super(Signal2DCNN, self).__init__()
         
         # 输入形状: (N, C_in, H, W) = (N, 3, 10240, 4)
         # 使用二维卷积网络处理信号数据
         self.features = nn.Sequential(
             # 第一层卷积
-            nn.Conv2d(input_channels, 32, kernel_size=(7, 4), stride=(2, 1), padding=(3, 0)),
+            # nn.Conv2d(input_channels, 32, kernel_size=(7, 4), stride=(2, 1), padding=(3, 0)),
+            nn.Conv2d(input_channels, 32, kernel_size=(7, 3), stride=(2, 1), padding=(3, 0)),
             # 输出: (N, 32, 5120, 1)
             nn.BatchNorm2d(32),
             nn.ReLU(),
