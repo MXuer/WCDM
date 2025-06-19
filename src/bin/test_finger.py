@@ -11,9 +11,8 @@ import numpy as np
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.dataset.dataset import WSCMDataset
-from src.model.cnn import WCDMACNN
-from src.model.rescnn import WCDMARESCNN
+from src.dataset.finger_dataset import WSCMFingerDataset
+from src.model_finger.cnn import WCDMAFingerCNN
 
 def get_args():
     parser = argparse.ArgumentParser(description='测试WCDM模型')
@@ -22,7 +21,7 @@ def get_args():
     parser.add_argument('--model_path', type=str, default='checkpoints/best_model.pth', help='模型路径')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='测试设备')
     parser.add_argument('--threshold', type=float, default=0.5, help='二值化阈值')
-    parser.add_argument('--model-type', type=str, default='rescnn', help='模型类别')
+    parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
     return parser.parse_args()
 
 
@@ -48,14 +47,14 @@ def test(args):
     # 加载测试数据集
     # print(f"加载测试数据集: {args.test_dir}")
     args.test_dir = Path(args.test_dir)
-    test_dataset = WSCMDataset(args.test_dir)
+    test_dataset = WSCMFingerDataset(args.test_dir)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 加载模型
     if args.model_type == "cnn":
-        model = WCDMACNN()
+        model = WCDMAFingerCNN()
     elif args.model_type == "rescnn":
-        model = WCDMARESCNN()
+        model = None
     checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(args.device)

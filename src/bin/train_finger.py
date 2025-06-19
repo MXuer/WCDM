@@ -13,26 +13,25 @@ import matplotlib.pyplot as plt
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.dataset.dataset import WSCMDataset
-from src.model.cnn import WCDMACNN
-from src.model.rescnn import WCDMARESCNN
+from src.dataset.finger_dataset import WSCMFingerDataset
+from src.model_finger.cnn import WCDMAFingerCNN
 from src.loss.loss import CombinedLoss
 
 torch.manual_seed(42)
 
 def get_args():
     parser = argparse.ArgumentParser(description='训练WCDM模型')
-    parser.add_argument('--data_dir', type=str, default='data/train', help='训练数据目录')
+    parser.add_argument('--data_dir', type=str, default='data_easy/train', help='训练数据目录')
     parser.add_argument('--test_dir', type=str, default='data/test', help='测试数据目录')
-    parser.add_argument('--batch_size', type=int, default=1280, help='批大小')
+    parser.add_argument('--batch_size', type=int, default=12800, help='批大小')
     parser.add_argument('--epochs', type=int, default=300, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
-    parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='logs/only_bce_nosnr26', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='checkpoints/only_bce_nosnr26', help='模型保存目录')
+    parser.add_argument('--warmup_epochs', type=int, default=30, help='预热轮数')
+    parser.add_argument('--log_dir', type=str, default='logs_finger', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='checkpoints_finger', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
-    parser.add_argument('--model-type', type=str, default='rescnn', help='模型类别')
+    parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
     return parser.parse_args()
 
 
@@ -56,10 +55,10 @@ def train(args):
     os.makedirs(args.save_dir, exist_ok=True)
     
 
-    data_dir = Path(args.data_dir) / args.model_type
+    data_dir = Path(args.data_dir)
 
-    args.log_dir = Path(args.log_dir) / f'{data_dir.name}'
-    args.save_dir = Path(args.save_dir) / f'{data_dir.name}'
+    args.log_dir = Path(args.log_dir) / args.model_type / f'{data_dir.name}'
+    args.save_dir = Path(args.save_dir) / args.model_type / f'{data_dir.name}'
 
     args.log_dir.mkdir(parents=True, exist_ok=True)
     args.save_dir.mkdir(parents=True, exist_ok=True)
@@ -69,7 +68,7 @@ def train(args):
     
     # 加载数据集
     print(f"加载训练数据集: {args.data_dir}")
-    train_dataset = WSCMDataset(args.data_dir)
+    train_dataset = WSCMFingerDataset(args.data_dir)
     
     # 划分训练集和验证集
     val_size = int(len(train_dataset) * args.val_ratio)
@@ -84,9 +83,9 @@ def train(args):
     
     # 初始化模型
     if args.model_type == "cnn":
-        model = WCDMACNN()
+        model = WCDMAFingerCNN()
     elif args.model_type == "rescnn":
-        model = WCDMARESCNN()
+        model = None
     model = model.to(args.device)
     
     # 定义损失函数和优化器
