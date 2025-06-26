@@ -15,23 +15,24 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.dataset.finger_dataset import WSCMFingerDataset
 from src.model_finger.cnn import WCDMAFingerCNN
+from src.model_finger.cnn4channel import WCDMAFingerCNN4
 from src.loss.loss import CombinedLoss
 
 torch.manual_seed(42)
 
 def get_args():
     parser = argparse.ArgumentParser(description='训练WCDM模型')
-    parser.add_argument('--data_dir', type=str, default='data_easy/train', help='训练数据目录')
+    parser.add_argument('--data_dir', type=str, default='wh_dataset/task2_finger_singal/different_split_unrelate_4Line/4_Line_SF16_Train_fraction_dataSet_160Bit_HDF5_20250623_164623', help='训练数据目录')
     parser.add_argument('--test_dir', type=str, default='data/test', help='测试数据目录')
-    parser.add_argument('--batch_size', type=int, default=12800, help='批大小')
-    parser.add_argument('--epochs', type=int, default=300, help='训练轮数')
+    parser.add_argument('--batch_size', type=int, default=3200, help='批大小')
+    parser.add_argument('--epochs', type=int, default=500, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
-    parser.add_argument('--warmup_epochs', type=int, default=30, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='logs_finger', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='checkpoints_finger', help='模型保存目录')
+    parser.add_argument('--warmup_epochs', type=int, default=50, help='预热轮数')
+    parser.add_argument('--log_dir', type=str, default='logs_task24-2', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='checkpoints_task24-2', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
-    parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
+    parser.add_argument('--model-type', type=str, default='cnn4', help='模型类别')
     return parser.parse_args()
 
 
@@ -59,6 +60,7 @@ def train(args):
 
     args.log_dir = Path(args.log_dir) / args.model_type / f'{data_dir.name}'
     args.save_dir = Path(args.save_dir) / args.model_type / f'{data_dir.name}'
+    
 
     args.log_dir.mkdir(parents=True, exist_ok=True)
     args.save_dir.mkdir(parents=True, exist_ok=True)
@@ -86,7 +88,15 @@ def train(args):
         model = WCDMAFingerCNN()
     elif args.model_type == "rescnn":
         model = None
+    elif args.model_type == "cnn4":
+        model = WCDMAFingerCNN4()
     model = model.to(args.device)
+    
+    if (args.save_dir / 'best_model.pth').exist():
+        pretrained_model = args.save_dir / 'best_model.pth'
+        checkpoint = torch.load(pretrained_model, map_location=args.device, weights_only=False)
+        model.load_state_dict(checkpoint['model_state_dict'])
+    
     
     # 定义损失函数和优化器
     criterion = CombinedLoss()  # 二元交叉熵损失，适用于0/1输出

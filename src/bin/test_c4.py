@@ -11,15 +11,16 @@ import numpy as np
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.dataset.dataset import WSCMDataset
-from src.model.cnn import WCDMACNN
-from src.model.rescnn import WCDMARESCNN
+from src.dataset.dataset_c4 import WSCMDataset
+from src.model.cnn_c4 import WCDMACNNC4
 
 def get_args():
     parser = argparse.ArgumentParser(description='测试WCDM模型')
     parser.add_argument('--test_dir', type=str, default='data/test', help='测试数据目录')
     parser.add_argument('--batch_size', type=int, default=64, help='批大小')
-    parser.add_argument('--model_path', type=str, default='checkpoints/best_model.pth', help='模型路径')
+    # -3 表示跟通道数为3的时候模型结构一样
+    # 不带 -3 的结构不太一样,这个就直接无效掉
+    parser.add_argument('--model_path', type=str, default='checkpoints_fraction_delay/100k-c4-3/cnn/best_model.pth', help='模型路径')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='测试设备')
     parser.add_argument('--threshold', type=float, default=0.5, help='二值化阈值')
     parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
@@ -53,9 +54,9 @@ def test(args):
     
     # 加载模型
     if args.model_type == "cnn":
-        model = WCDMACNN()
+        model = WCDMACNNC4()
     elif args.model_type == "rescnn":
-        model = WCDMARESCNN()
+        model = None
     checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(args.device)

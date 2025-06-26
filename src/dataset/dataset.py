@@ -15,7 +15,7 @@ class WSCMDataset(Dataset):
         h5_files = list(Path(data_dir).rglob('*.h5'))
         data = []
         label = []
-        for h5_file in h5_files:
+        for h5_file in tqdm(h5_files, desc='reading h5 files...'):
             with h5py.File(h5_file, 'r') as f:
                 data.extend(f['input'])
                 label.extend(f['output'])
@@ -23,6 +23,7 @@ class WSCMDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
+    
     # 在dataset.py中添加数据归一化
     def __getitem__(self, idx):
         # 获取数据并转换为float32

@@ -13,15 +13,16 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.dataset.finger_dataset import WSCMFingerDataset
 from src.model_finger.cnn import WCDMAFingerCNN
+from src.model_finger.cnn4channel import WCDMAFingerCNN4
 
 def get_args():
     parser = argparse.ArgumentParser(description='测试WCDM模型')
     parser.add_argument('--test_dir', type=str, default='data/test', help='测试数据目录')
     parser.add_argument('--batch_size', type=int, default=64, help='批大小')
-    parser.add_argument('--model_path', type=str, default='checkpoints/best_model.pth', help='模型路径')
+    parser.add_argument('--model_path', type=str, default='checkpoints_task24/cnn4/4_Line_SF16_Train_fraction_dataSet_160Bit_HDF5_20250623_164623/best_model.pth', help='模型路径')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='测试设备')
     parser.add_argument('--threshold', type=float, default=0.5, help='二值化阈值')
-    parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
+    parser.add_argument('--model-type', type=str, default='cnn4', help='模型类别')
     return parser.parse_args()
 
 
@@ -55,6 +56,8 @@ def test(args):
         model = WCDMAFingerCNN()
     elif args.model_type == "rescnn":
         model = None
+    elif args.model_type == "cnn4":
+        model = WCDMAFingerCNN4()
     checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(args.device)
@@ -87,7 +90,7 @@ def test(args):
     # 计算平均损失和指标
     test_loss /= len(test_dataset)
     avg_metrics = {k: np.mean([m[k] for m in all_metrics]) for k in all_metrics[0]}
-    print(f"{args.test_dir}\t{test_loss:.4f}\t{avg_metrics['accuracy']:.4f}")
+    print(f"{args.test_dir}\t{test_loss:.8f}\t{avg_metrics['accuracy']:.8f}")
     # 打印结果
     # print(f"测试损失: {test_loss:.4f}")
     # print(f"准确率: {avg_metrics['accuracy']:.4f}")

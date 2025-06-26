@@ -14,9 +14,8 @@ import matplotlib.pyplot as plt
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.dataset.dataset import WSCMDataset
-from src.model.cnn import WCDMACNN
-from src.model.rescnn import WCDMARESCNN
+from src.dataset.dataset_c4 import WSCMDataset
+from src.model.cnn_c4 import WCDMACNNC4
 from src.loss.loss import CombinedLoss
 
 torch.manual_seed(42)
@@ -29,9 +28,9 @@ def get_args():
     parser.add_argument('--epochs', type=int, default=400, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
-    parser.add_argument('--warmup_epochs', type=int, default=20, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='logs_fraction_delay/100k', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='checkpoints_fraction_delay/100k', help='模型保存目录')
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
+    parser.add_argument('--log_dir', type=str, default='logs_fraction_delay/100k-c4-3', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='checkpoints_fraction_delay/100k-c4-3', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
     parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
     return parser.parse_args()
@@ -85,9 +84,9 @@ def train(args):
     
     # 初始化模型
     if args.model_type == "cnn":
-        model = WCDMACNN()
+        model = WCDMACNNC4()
     elif args.model_type == "rescnn":
-        model = WCDMARESCNN()
+        model = None
     print(model)
     model = model.to(args.device)
     
