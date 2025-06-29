@@ -4,7 +4,7 @@ import torch.nn as nn
 # 定义CNN模型架构
 # 修改后的CNN模型架构（添加Dropout和正则化）
 class WCDMACNN(nn.Module):
-    def __init__(self, input_height=4, input_width=10240, input_channels=3, output_size=160):
+    def __init__(self, input_height=4, input_width=10240, input_channels=1, output_size=160):
         super(WCDMACNN, self).__init__()
         
         # 修改后的卷积层序列（添加Dropout）
@@ -77,12 +77,3 @@ class WCDMACNN(nn.Module):
         x = self.conv_layers(x)
         x = self.dense_layers(x)
         return x
-
-if __name__ == '__main__':
-    model = WCDMACNN()
-    total = sum(p.numel() for p in model.parameters())
-    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(total)
-    x = torch.randn(2, 3, 10240, 4)  # (batch_size, 3, 10240, 4)
-    y = model(x)                    # (batch_size, 160)
-    print(y.shape)

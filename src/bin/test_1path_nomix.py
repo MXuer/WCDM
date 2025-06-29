@@ -11,26 +11,25 @@ import numpy as np
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.dataset.dataset import WSCMDataset
-from src.model.cnn import WCDMACNN
-from src.model.rescnn import WCDMARESCNN
-from src.model.delay_unet import DelayAwareUNet
+from src.dataset.dataset_1p_nomix import WSCMDataset
+from src.model.cnn_p1 import WCDMACNN
+from src.model.delay_unet_p1 import DelayAwareUNet
 
 def get_args():
     parser = argparse.ArgumentParser(description='测试WCDM模型')
     parser.add_argument('--test_dir', type=str, default='data/test', help='测试数据目录')
     parser.add_argument('--batch_size', type=int, default=64, help='批大小')
-    parser.add_argument('--model_path', type=str, default='checkpoints/best_model.pth', help='模型路径')
+    parser.add_argument('--model_path', type=str, default='/data/duhu/WCDM/checkpoints_1path-nomix/unet/best_model.pth', help='模型路径')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='测试设备')
     parser.add_argument('--threshold', type=float, default=0.5, help='二值化阈值')
-    parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
+    parser.add_argument('--model-type', type=str, default='unet', help='模型类别')
     return parser.parse_args()
 
 
 def calculate_metrics(outputs, targets, threshold=0.5):
     """计算模型性能指标"""
     # 将输出二值化
-    predictions = (outputs >= threshold).float()
+    predictions = (outputs > threshold).float()
     
     # 计算准确率
     correct = (predictions == targets).float()
@@ -55,11 +54,8 @@ def test(args):
     # 加载模型
     if args.model_type == "cnn":
         model = WCDMACNN()
-    elif args.model_type == "rescnn":
-        model = WCDMARESCNN()
     elif args.model_type == "unet":
         model = DelayAwareUNet()
-        
     checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(args.device)

@@ -14,27 +14,26 @@ import matplotlib.pyplot as plt
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.dataset.dataset import WSCMDataset
-from src.model.cnn import WCDMACNN
-from src.model.rescnn import WCDMARESCNN
-from src.model.delay_unet import DelayAwareUNet
+from src.dataset.dataset_1p_nomix import WSCMDataset
+from src.model.cnn_p1 import WCDMACNN
+from src.model.delay_unet_p1 import DelayAwareUNet
 from src.loss.loss import CombinedLoss
 
 torch.manual_seed(42)
 
 def get_args():
     parser = argparse.ArgumentParser(description='训练WCDM模型')
-    parser.add_argument('--data_dir', type=str, default='/data/duhu/WCDM/data_fraction_delay/train', help='训练数据目录')
+    parser.add_argument('--data_dir', type=str, default='data_1path_clean/train', help='训练数据目录')
     parser.add_argument('--test_dir', type=str, default='data/test', help='测试数据目录')
-    parser.add_argument('--batch_size', type=int, default=512, help='批大小')
+    parser.add_argument('--batch_size', type=int, default=1024, help='批大小')
     parser.add_argument('--epochs', type=int, default=400, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
     parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='logs_fraction_delay/100k', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='checkpoints_fraction_delay/100k', help='模型保存目录')
+    parser.add_argument('--log_dir', type=str, default='logs_1path-nomix-dropout/', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='checkpoints_1path-nomix-dropout/', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
-    parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
+    parser.add_argument('--model-type', type=str, default='unet', help='模型类别')
     return parser.parse_args()
 
 
@@ -72,7 +71,7 @@ def train(args):
     # 加载数据集
     print(f"加载训练数据集: {args.data_dir}")
     train_dataset = WSCMDataset(args.data_dir)
-    print(f'数据集加载完成。')
+    
     # 划分训练集和验证集
     val_size = int(len(train_dataset) * args.val_ratio)
     train_size = len(train_dataset) - val_size
@@ -87,8 +86,6 @@ def train(args):
     # 初始化模型
     if args.model_type == "cnn":
         model = WCDMACNN()
-    elif args.model_type == "rescnn":
-        model = WCDMARESCNN()
     elif args.model_type == "unet":
         model = DelayAwareUNet()
     print(model)

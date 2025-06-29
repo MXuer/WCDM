@@ -1,6 +1,5 @@
 import h5py
 import os
-import numpy as np
 from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -30,14 +29,14 @@ class WSCMDataset(Dataset):
         # 获取数据并转换为float32
         data = torch.tensor(self.data[idx], dtype=torch.float32)
         label = torch.tensor(self.labels[idx], dtype=torch.float32)
-        data = data.permute(2, 0, 1)
+        data = data.permute(0, 2, 1)
         if self.norm:
             data = (data - data.mean()) / (data.std() + 1e-6)
         return data, label
 
 if __name__=="__main__":
-    dataset = WSCMDataset('data/test/SNR_-6.0')
-    dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+    dataset = WSCMDataset('/data/duhu/WCDM/data_fraction_delay/test/SNR_-6.0')
+    dataloader = DataLoader(dataset, batch_size=100, shuffle=True)
     batch = next(iter(dataloader))
     x = batch[0]
     print("Input shape:", x.shape)
