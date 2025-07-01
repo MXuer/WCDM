@@ -15,7 +15,7 @@ def write2dataset(dataset, output_file):
         f.create_dataset('output', data=y_arr)
 
 def main():
-    data_dir = Path("/data/duhu/WCDM/raw_data/New_SF16_dataSet_160Bit_HDF5_20250615_022354")
+    data_dir = Path("/data/duhu/WCDM/raw_data/Uniform_SF16_unrelated_fraction_Train_dataSet_160Bit_HDF5_20250621_094320")
     exp_dir = Path("data_new")
     train_dir = exp_dir / "train"
     test_dir = exp_dir / "test"
