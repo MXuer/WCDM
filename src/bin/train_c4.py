@@ -196,7 +196,7 @@ def train(args):
 
     # 绘制训练损失曲线
     plt.figure(figsize=(12, 8))
-    
+
     # 损失曲线
     plt.subplot(2, 1, 1)
     plt.plot(train_losses, 'b-', linewidth=2, label='Training Loss')
@@ -206,7 +206,7 @@ def train(args):
     plt.ylabel('Loss')
     plt.legend()
     plt.grid(True)
-    
+
     # 学习率曲线
     plt.subplot(2, 1, 2)
     plt.plot(lrs, 'g-', linewidth=2)
@@ -215,22 +215,22 @@ def train(args):
     plt.ylabel('Learning Rate')
     plt.grid(True)
     
-    plt.tight_layout()
-    plt.savefig(args.save_dir / 'training_progress.png', dpi=300)
-    print('训练过程曲线已保存为 training_progress.png')
-    
-    # 绘制损失曲线 (仅损失)
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_losses, 'b-', linewidth=2, label='Training Loss')
-    plt.plot(val_losses, 'r-', linewidth=2, label='Validation Loss')
-    plt.title('Training and Validation Loss', fontsize=14)
-    plt.xlabel('Epoch', fontsize=12)
-    plt.ylabel('Loss', fontsize=12)
-    plt.legend(fontsize=12)
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.tight_layout()
-    plt.savefig(args.save_dir / 'loss_curve.png', dpi=300)
-    print('损失曲线已保存为 loss_curve.png')
+plt.tight_layout()
+plt.savefig(args.save_dir / 'training_progress.png', dpi=300)
+print('训练过程曲线已保存为 training_progress.png')
+
+# 绘制损失曲线 (仅损失)
+plt.figure(figsize=(10, 6))
+plt.plot(train_losses, 'b-', linewidth=2, label='Training Loss')
+plt.plot(val_losses, 'r-', linewidth=2, label='Validation Loss')
+plt.title('Training and Validation Loss', fontsize=14)
+plt.xlabel('Epoch', fontsize=12)
+plt.ylabel('Loss', fontsize=12)
+plt.legend(fontsize=12)
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.savefig(args.save_dir / 'loss_curve.png', dpi=300)
+print('损失曲线已保存为 loss_curve.png')
 
 
 if __name__ == "__main__":

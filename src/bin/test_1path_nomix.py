@@ -19,7 +19,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='测试WCDM模型')
     parser.add_argument('--test_dir', type=str, default='data/test', help='测试数据目录')
     parser.add_argument('--batch_size', type=int, default=64, help='批大小')
-    parser.add_argument('--model_path', type=str, default='/data/duhu/WCDM/checkpoints_1path-nomix/unet/best_model.pth', help='模型路径')
+    parser.add_argument('--model_path', type=str, default='/data/duhu/WCDM/checkpoints_1path-nomix-dropout/unet/best_model.pth', help='模型路径')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='测试设备')
     parser.add_argument('--threshold', type=float, default=0.5, help='二值化阈值')
     parser.add_argument('--model-type', type=str, default='unet', help='模型类别')

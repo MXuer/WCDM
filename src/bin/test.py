@@ -46,12 +46,6 @@ def calculate_metrics(outputs, targets, threshold=0.5):
 
 
 def test(args):
-    # 加载测试数据集
-    # print(f"加载测试数据集: {args.test_dir}")
-    args.test_dir = Path(args.test_dir)
-    test_dataset = WSCMDataset(args.test_dir)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
-    
     # 加载模型
     if args.model_type == "cnn":
         model = WCDMACNN()
@@ -60,45 +54,53 @@ def test(args):
     elif args.model_type == "unet":
         model = DelayAwareUNet()
         
-    checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model = model.to(args.device)
-    model.eval()
-    
-    # 定义损失函数
-    criterion = nn.BCELoss()
-    
-    # 测试循环
-    test_loss = 0.0
-    all_metrics = []
-    
-    with torch.no_grad():
-        # for inputs, targets in tqdm(test_loader, desc="Testing"):
-        for inputs, targets in test_loader:
-            inputs = inputs.to(args.device)
-            targets = targets.to(args.device).float()
-            
-            # 前向传播
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
-            
-            # 计算指标
-            batch_metrics = calculate_metrics(outputs, targets, args.threshold)
-            all_metrics.append(batch_metrics)
-            
-            # 更新损失
-            test_loss += loss.item() * inputs.size(0)
-    
-    # 计算平均损失和指标
-    test_loss /= len(test_dataset)
-    avg_metrics = {k: np.mean([m[k] for m in all_metrics]) for k in all_metrics[0]}
-    print(f"{args.test_dir}\t{test_loss:.4f}\t{avg_metrics['accuracy']:.4f}")
-    # 打印结果
-    # print(f"测试损失: {test_loss:.4f}")
-    # print(f"准确率: {avg_metrics['accuracy']:.4f}")
-    # print(f"位错误率: {avg_metrics['bit_error_rate']:.4f}")
-    
-    return test_loss, avg_metrics
+    # 加载测试数据集
+    # print(f"加载测试数据集: {args.test_dir}")
+    sub_test_dirs = Path(args.test_dir).glob('*')
+    for sub_dir in sub_test_dirs:
+        if not sub_dir.is_dir(): continue
+        test_dataset = WSCMDataset(sub_dir)
+        test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+        
+        checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model = model.to(args.device)
+        model.eval()
+        
+        # 定义损失函数
+        criterion = nn.BCELoss()
+        
+        # 测试循环
+        test_loss = 0.0
+        all_metrics = []
+        
+        with torch.no_grad():
+            # for inputs, targets in tqdm(test_loader, desc="Testing"):
+            for inputs, targets in test_loader:
+                inputs = inputs.to(args.device)
+                targets = targets.to(args.device).float()
+                
+                # 前向传播
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                
+                # 计算指标
+                batch_metrics = calculate_metrics(outputs, targets, args.threshold)
+                all_metrics.append(batch_metrics)
+                
+                # 更新损失
+                test_loss += loss.item() * inputs.size(0)
+        
+        # 计算平均损失和指标
+        test_loss /= len(test_dataset)
+        avg_metrics = {k: np.mean([m[k] for m in all_metrics]) for k in all_metrics[0]}
+        print(f"{sub_dir}\t{test_loss:.4f}\t{avg_metrics['accuracy']:.4f}")
+        # 打印结果
+        # print(f"测试损失: {test_loss:.4f}")
+        # print(f"准确率: {avg_metrics['accuracy']:.4f}")
+        # print(f"位错误率: {avg_metrics['bit_error_rate']:.4f}")
+        
+        return test_loss, avg_metrics
 
 
 if __name__ == "__main__":
