@@ -43,11 +43,11 @@ class TransformerBlock(nn.Module):
 class DelayAwareUNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.encoder1 = ConvBlock(3, 32, stride=(2, 1))   # 10240 -> 5120
-        self.encoder2 = ConvBlock(32, 64, stride=(4, 1))  # 5120 -> 2560
-        self.encoder3 = ConvBlock(64, 128, stride=(4, 1)) # 2560 -> 1280
+        self.encoder1 = ConvBlock(3, 32, stride=(1, 1))   # 10240 -> 5120
+        self.encoder2 = ConvBlock(32, 64, stride=(1, 1))  # 5120 -> 2560
+        self.encoder3 = ConvBlock(64, 128, stride=(1, 1)) # 2560 -> 1280
 
-        self.middle = ConvBlock(128, 256, stride=(4, 1))  # 1280 -> 320
+        self.middle = ConvBlock(128, 256, stride=(1, 1))  # 1280 -> 320
 
         self.transformer = TransformerBlock(embed_dim=256, num_heads=8)
 
@@ -59,10 +59,10 @@ class DelayAwareUNet(nn.Module):
 
         self.final = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(5120, 512),
+            nn.Linear(4096, 512),
             nn.Dropout(0.3),
             nn.ReLU(),
-            nn.Linear(512, 160),
+            nn.Linear(512, 1),
             nn.Sigmoid()
         )
 
@@ -77,15 +77,14 @@ class DelayAwareUNet(nn.Module):
         m_flat = m.permute(0, 2, 3, 1).reshape(B, H * W, C)
         t_out = self.transformer(m_flat)
         m = t_out.reshape(B, H, W, C).permute(0, 3, 1, 2)  # [B, 256, 320, 4]
-        print(m.size())
         d3 = self.up(m)                          # [B, 256, 640, 4]
-        d3 = self.decoder3(torch.cat([d3, F.interpolate(e3, size=(160, 4), mode='bilinear', align_corners=False)], dim=1))
+        d3 = self.decoder3(torch.cat([d3, F.interpolate(e3, size=(128, 4), mode='bilinear', align_corners=False)], dim=1))
 
         d2 = self.up(d3)                         # [B, 128, 1280, 4]
-        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(320, 4), mode='bilinear', align_corners=False)], dim=1))
+        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(256, 4), mode='bilinear', align_corners=False)], dim=1))
 
         d1 = self.up(d2)                         # [B, 64, 2560, 4]
-        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(640, 4), mode='bilinear', align_corners=False)], dim=1))
+        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(512, 4), mode='bilinear', align_corners=False)], dim=1))
 
         out = self.final(d1)                     # [B, 160]
         return out

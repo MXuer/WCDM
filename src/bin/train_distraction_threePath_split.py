@@ -11,27 +11,29 @@ from tqdm import tqdm
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
+from torch.utils.data import ConcatDataset
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.dataset.dataset_distraction_threepath_spilt import WSCMDataset
 from src.model.cnn_distraction_threepath_split import WCDMACNNDISTRACT
 from src.model.cnn_distraction_threepath_split2 import WCDMACNNDISTRACT2
+from src.model.delay_unet_p3 import DelayAwareUNet
 from src.loss.loss import CombinedLoss
 
 torch.manual_seed(42)
 
 def get_args():
     parser = argparse.ArgumentParser(description='训练WCDM模型')
-    parser.add_argument('--data_dir', type=str, default='/data/duhu/WCDM/raw_data/Uniform_SF16_unrelated_fraction_Train_dataSet_160Bit_HDF5_20250621_094320', help='训练数据目录')
-    parser.add_argument('--test_dir', type=str, default='/data/duhu/WCDM/raw_data/SF16_dataSet_fraction_test_160Bit_HDF5_fraction_delay20250621_134727', help='测试数据目录')
+    parser.add_argument('--data_dir', type=str, default='/data/duhu/WCDM/raw_data/Integer_delay/Uniform_SF16_Train_dataSet_160Bit_HDF5_20250618_223458_integer_delay', help='训练数据目录')
+    parser.add_argument('--test_dir', type=str, default='/data/duhu/WCDM/raw_data/Integer_delay/New_SF16_dataSet_160Bit_HDF5_20250615_022354', help='测试数据目录')
     parser.add_argument('--batch_size', type=int, default=160 * 80 * 8, help='批大小')
     parser.add_argument('--epochs', type=int, default=100, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
     parser.add_argument('--warmup_epochs', type=int, default=20, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='logs_fraction_delay/100k-add-distraction/threePath', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='checkpoints_fraction_delay/100k-add-distraction/threepath', help='模型保存目录')
+    parser.add_argument('--log_dir', type=str, default='logs_Integer_delay/100k-add-distraction/threePath', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='checkpoints_Integer_delay/100k-add-distraction/threepath', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
     parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
     return parser.parse_args()
@@ -69,25 +71,31 @@ def train(args):
     writer = SummaryWriter(log_dir=args.log_dir)
     
     # 加载数据集
+    print(f"加载测试数据集: {args.test_dir}")
+    test_dataset = []
+    for each in list(Path(args.test_dir).glob('*')):
+        print(f'reading {each}...')
+        test_dataset.append(WSCMDataset(each))
+    test_dataset = ConcatDataset(test_dataset)
     print(f"加载训练数据集: {args.data_dir}")
     train_dataset = WSCMDataset(args.data_dir)
-    
-    # 划分训练集和验证集
-    val_size = int(len(train_dataset) * args.val_ratio)
-    train_size = len(train_dataset) - val_size
-    train_subset, val_subset = random_split(train_dataset, [train_size, val_size])
-    
-    print(f"训练集大小: {train_size}, 验证集大小: {val_size}")
+    # # 划分训练集和验证集
+    # val_size = int(len(train_dataset) * args.val_ratio)
+    # train_size = len(train_dataset) - val_size
+    # train_subset, val_subset = random_split(train_dataset, [train_size, val_size])
+    train_size = len(train_dataset)
+    val_size = len(test_dataset)
+    print(f"训练集大小: {len(train_dataset)}, 验证集大小: {len(test_dataset)}")
     
     # 创建数据加载器
-    train_loader = DataLoader(train_subset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    val_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 初始化模型
     if args.model_type == "cnn":
         model = WCDMACNNDISTRACT()
-    elif args.model_type == "cnn2":
-        model = WCDMACNNDISTRACT2()
+    elif args.model_type == "unet":
+        model = DelayAwareUNet()
     print(model)
     model = model.to(args.device)
     

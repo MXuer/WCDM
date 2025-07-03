@@ -13,12 +13,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.dataset.dataset_distraction_threepath_spilt import WSCMDataset
 from src.model.cnn_distraction_threepath_split import WCDMACNNDISTRACT
+from src.model.delay_unet_p3 import DelayAwareUNet
 
 def get_args():
     parser = argparse.ArgumentParser(description='测试WCDM模型')
-    parser.add_argument('--test_dir', type=str, default='/data/duhu/WCDM/raw_data/SF16_dataSet_fraction_test_160Bit_HDF5_fraction_delay20250621_134727', help='测试数据目录')
-    parser.add_argument('--batch_size', type=int, default=160 * 80 * 8, help='批大小')
-    parser.add_argument('--model_path', type=str, default='checkpoints_fraction_delay/100k-add-distraction/threepath/cnn/best_model.pth', help='模型路径')
+    parser.add_argument('--test_dir', type=str, default='/data/duhu/WCDM/raw_data/Integer_delay/New_SF16_dataSet_160Bit_HDF5_20250615_022354', help='测试数据目录')
+    parser.add_argument('--batch_size', type=int, default=160 * 80, help='批大小')
+    parser.add_argument('--model_path', type=str, default='checkpoints_Integer_delay/100k-add-distraction/threepath/cnn/best_model.pth', help='模型路径')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='测试设备')
     parser.add_argument('--threshold', type=float, default=0.5, help='二值化阈值')
     parser.add_argument('--model-type', type=str, default='cnn', help='模型类别')
@@ -47,6 +48,8 @@ def test(args):
     # 一次性加载模型（放在循环外部）
     if args.model_type == "cnn":
         model = WCDMACNNDISTRACT()
+    elif args.model_type == "unet":
+        model = DelayAwareUNet()
     
     checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -96,8 +99,9 @@ if __name__ == "__main__":
     
     # 打印汇总结果
     print("\n测试结果汇总:")
+    all_results = sorted(all_results, key=lambda x:float(x[0].split('-')[-1]))
     for path, loss, metrics in all_results:
-        print(f"目录: {Path(path).name}")
-        print(f"  损失: {loss:.4f}")
-        print(f"  准确率: {metrics['accuracy']:.6f}")
-        print(f"  误码率: {metrics['bit_error_rate']:.6f}")
+        print(f"目录: {Path(path).name}\t损失: {loss:.4f}\t准确率: {metrics['accuracy']:.6f}\t误码率: {metrics['bit_error_rate']:.6f}")
+        # print(f"  损失: {loss:.4f}")
+        # print(f"  准确率: {metrics['accuracy']:.6f}")
+        # print(f"  误码率: {metrics['bit_error_rate']:.6f}")
