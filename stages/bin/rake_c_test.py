@@ -71,26 +71,29 @@ def main(data_path):
                             print(f"  - {field}: {array.shape} (dtype: {array.dtype})")
                     
                     # 提取数据
-                    finger_signal = data['finger_data_channel_signal']  # 多径信号
-                    channel_est = data['channel_estimates']  # 信道估计
-                    original_bits = data['original_bit']  # 原始比特
+                    finger_signal = data['finger_data_channel_signal']  # 多径信号 (2, paths, samples)
+                    channel_est = data['channel_estimates']             # 信道估计 (2, paths)
+                    original_bits = data['original_bit']                # 原始比特 (samples,)
                     
-                    # 检查维度是否匹配
-                    if finger_signal.shape != channel_est.shape:
-                        print(f"\n错误: 文件 {file} 信号和信道估计维度不匹配")
-                        print(f"  信号形状: {finger_signal.shape}, 信道估计形状: {channel_est.shape}")
-                        continue
+                    # =============== 关键转换 =============== 
+                    # 1. 将实部和虚部组合为复数信号
+                    # 转换信道估计: (2, paths) -> (paths,) 复数
+                    channel_complex = channel_est[0, :] + 1j * channel_est[1, :]
                     
-                    # 使用MRC合并多径信号
-                    # 共轭信道估计乘以信号
-                    mrc_signal = np.conj(channel_est) * finger_signal
+                    # 转换多径信号: (2, paths, samples) -> (paths, samples) 复数
+                    finger_complex = finger_signal[0] + 1j * finger_signal[1]
                     
-                    # 合并多径: 求和 (最大比合并)
+                    # 2. 进行MRC合并
+                    # 计算: conj(channel) * finger_signal
+                    mrc_signal = np.conj(channel_complex)[:, np.newaxis] * finger_complex
+                    
+                    # 合并多径: 沿路径维度求和
                     combined_signal = np.sum(mrc_signal, axis=0)
                     
-                    # 硬判决 (假设BPSK调制)
-                    # 只取实部，因为虚部可能是噪声
-                    hard_decision = np.where(np.real(combined_signal) >= 0, 1, 0)
+                    # 3. 硬判决 (取实部)
+                    # 由于信号是复数，我们取实部进行判决
+                    signal_real = np.real(combined_signal)
+                    hard_decision = np.where(signal_real >= 0, 1, 0)
                     
                     # 检查比特长度是否匹配
                     if len(hard_decision) != len(original_bits):
@@ -106,6 +109,13 @@ def main(data_path):
                     total_bits += len(original_bits)
                     processed_files += 1
                     file_counter += 1
+                    
+                    # 打印前3个文件的处理详情
+                    if processed_files <= 3:
+                        print(f"  信道估计复数: {channel_complex.shape}, 数据类型: {channel_complex.dtype}")
+                        print(f"  多径信号复数: {finger_complex.shape}, 数据类型: {finger_complex.dtype}")
+                        print(f"  合并后信号: {combined_signal.shape}, 均值: {np.mean(combined_signal):.4f}")
+                        print(f"  误码数: {errors}/{len(original_bits)}")
                     
             except Exception as e:
                 print(f"\n处理 {file} 时出错: {str(e)}")
@@ -168,7 +178,7 @@ def main(data_path):
 
 # 使用示例
 if __name__ == "__main__":
-    data_path = "/data/duhu/WCDM/data_stages/rician_channel/fraction_delay"  # 替换为你的主文件夹路径
+    data_path = "data_stages/rician_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250708_092954"  # 替换为你的主文件夹路径
     print("="*50)
     print("开始处理误码率计算")
     print("="*50)

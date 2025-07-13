@@ -27,8 +27,8 @@ class C_Dataset(Dataset):
         # channel_estimates = np.broadcast_to(channel_estimates[np.newaxis, ...], (1, 3, 2))
         # concatenate finger_data_channel_signal and channel_estimates
         # input = np.concatenate([finger_data_channel_signal, channel_estimates], axis=0)
-        input = finger_data_channel_signal + channel_estimates
-        input = torch.from_numpy(input).float().permute(1, 0, 2)
+        channel_estimates_expand = torch.from_numpy(channel_estimates).float().unsqueeze(0).expand(160, -1, -1)  # (160, 2, 3)
+        input = torch.cat([torch.from_numpy(finger_data_channel_signal), channel_estimates_expand], dim=2).float().permute(1, 0, 2)
         
         return input, output
 

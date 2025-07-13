@@ -19,7 +19,7 @@ class CUNET(nn.Module):
         self.encoder1 = ConvBlock(3, 32, stride=(2, 1))   # 10240 -> 5120
         self.encoder2 = ConvBlock(32, 64, stride=(2, 1))  # 5120 -> 2560
 
-        self.middle = ConvBlock(64, 128, stride=(1, 1))  # 1280 -> 320
+        self.middle = ConvBlock(64, 128, stride=(2, 1))  # 1280 -> 320
 
         self.transformer = TransformerBlock(embed_dim=128, num_heads=4)
 
@@ -30,19 +30,14 @@ class CUNET(nn.Module):
 
         self.final = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(32, 128),
+            nn.Linear(640, 128),
             nn.Dropout(0.3),
             nn.ReLU(),
-            nn.Linear(128, 1),
+            nn.Linear(128, 160),
             nn.Sigmoid()
         )
 
     def forward(self, x):
-        x = x.permute(0, 2, 1, 3)
-        bs, len = x.size(0), x.size(1)
-        x = x.reshape(x.size(0)*x.size(1), x.size(2), x.size(3)).unsqueeze(1)
-        x = x.permute(0, 2, 1, 3)
-        
         e1 = self.encoder1(x)                    # [B, 32, 5120, 4]
         e2 = self.encoder2(e1)                   # [B, 64, 2560, 4]
         m = self.middle(e2)                      # [B, 256, 320, 4]
@@ -52,18 +47,17 @@ class CUNET(nn.Module):
         t_out = self.transformer(m_flat)
         m = t_out.reshape(B, H, W, C).permute(0, 3, 1, 2)  # [B, 256, 320, 4]
         d2 = self.up(m)                         # [B, 128, 1280, 4]
-        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(2, 2), mode='bilinear', align_corners=False)], dim=1))
+        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(40, 4), mode='bilinear', align_corners=False)], dim=1))
 
         d1 = self.up(d2)                         # [B, 64, 2560, 4]
-        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(2, 1), mode='bilinear', align_corners=False)], dim=1))
+        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(40, 2), mode='bilinear', align_corners=False)], dim=1))
 
         out = self.final(d1)                     # [B, 160]
-        out = out.reshape(bs, len, 1).squeeze(-1)
         return out        
     
     
 if __name__=="__main__":
-    x = torch.randn(128, 3, 160, 2)  # Reduce batch size if needed
+    x = torch.randn(128, 3, 160, 4)  # Reduce batch size if needed
     model = CUNET()
     print(x.shape)
     y = model(x)
