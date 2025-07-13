@@ -14,23 +14,22 @@ class C_Dataset(Dataset):
         print(f'loading {len(self.h5_files)} H5 files...')
         
     def __len__(self):
-        return len(self.h5_files) * 3
+        return len(self.h5_files)
 
     def __getitem__(self, index):
         # channel_estimates (3, 2)
         # finger_data_channel_signal (160, 3, 2)
-        file_index = index // 3
-        data_index = index % 3
-        with h5py.File(self.h5_files[file_index], 'r') as f:
+        with h5py.File(self.h5_files[index], 'r') as f:
             channel_estimates = np.array(f['channel_estimates']).T
             finger_data_channel_signal = np.array(f['finger_data_channel_signal']).T
             output = np.array(f['original_bit'])
         # expand channel_estimates from (3, 2) to (10, 3, 2)
-        channel_estimates = np.broadcast_to(channel_estimates[np.newaxis, ...], (10, 3, 2))
+        # channel_estimates = np.broadcast_to(channel_estimates[np.newaxis, ...], (1, 3, 2))
         # concatenate finger_data_channel_signal and channel_estimates
-        input = np.concatenate([finger_data_channel_signal, channel_estimates], axis=0)
+        # input = np.concatenate([finger_data_channel_signal, channel_estimates], axis=0)
+        input = finger_data_channel_signal + channel_estimates
         input = torch.from_numpy(input).float().permute(1, 0, 2)
-        input = input[data_index, :, :].unsqueeze(0)
+        
         return input, output
 
 

@@ -16,28 +16,33 @@ from stages.model.delay_unet import count_parameters
 class CUNET(nn.Module):
     def __init__(self):
         super().__init__()
-        self.encoder1 = ConvBlock(1, 32, stride=(2, 1))   # 10240 -> 5120
+        self.encoder1 = ConvBlock(3, 32, stride=(2, 1))   # 10240 -> 5120
         self.encoder2 = ConvBlock(32, 64, stride=(2, 1))  # 5120 -> 2560
 
-        self.middle = ConvBlock(64, 64, stride=(1, 1))  # 1280 -> 320
+        self.middle = ConvBlock(64, 128, stride=(1, 1))  # 1280 -> 320
 
-        self.transformer = TransformerBlock(embed_dim=64, num_heads=4)
+        self.transformer = TransformerBlock(embed_dim=128, num_heads=4)
 
         self.up = lambda x: F.interpolate(x, scale_factor=(2, 1), mode='bilinear', align_corners=False)
 
-        self.decoder2 = ConvBlock(64 + 64, 64, stride=2)
+        self.decoder2 = ConvBlock(128 + 64, 64, stride=2)
         self.decoder1 = ConvBlock(64 + 32, 32, stride=2)
 
         self.final = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(1376, 128),
+            nn.Linear(32, 128),
             nn.Dropout(0.3),
             nn.ReLU(),
-            nn.Linear(128, 160),
+            nn.Linear(128, 1),
             nn.Sigmoid()
         )
 
     def forward(self, x):
+        x = x.permute(0, 2, 1, 3)
+        bs, len = x.size(0), x.size(1)
+        x = x.reshape(x.size(0)*x.size(1), x.size(2), x.size(3)).unsqueeze(1)
+        x = x.permute(0, 2, 1, 3)
+        
         e1 = self.encoder1(x)                    # [B, 32, 5120, 4]
         e2 = self.encoder2(e1)                   # [B, 64, 2560, 4]
         m = self.middle(e2)                      # [B, 256, 320, 4]
@@ -47,17 +52,18 @@ class CUNET(nn.Module):
         t_out = self.transformer(m_flat)
         m = t_out.reshape(B, H, W, C).permute(0, 3, 1, 2)  # [B, 256, 320, 4]
         d2 = self.up(m)                         # [B, 128, 1280, 4]
-        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(86, 2), mode='bilinear', align_corners=False)], dim=1))
+        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(2, 2), mode='bilinear', align_corners=False)], dim=1))
 
         d1 = self.up(d2)                         # [B, 64, 2560, 4]
-        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(86, 1), mode='bilinear', align_corners=False)], dim=1))
+        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(2, 1), mode='bilinear', align_corners=False)], dim=1))
 
         out = self.final(d1)                     # [B, 160]
+        out = out.reshape(bs, len, 1).squeeze(-1)
         return out        
     
     
 if __name__=="__main__":
-    x = torch.randn(128, 1, 2, 170)  # Reduce batch size if needed
+    x = torch.randn(128, 3, 160, 2)  # Reduce batch size if needed
     model = CUNET()
     print(x.shape)
     y = model(x)

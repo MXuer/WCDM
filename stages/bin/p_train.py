@@ -39,7 +39,7 @@ def get_args():
     parser.add_argument('--log_dir', type=str, default='logs_stage/', help='TensorBoard日志目录')
     parser.add_argument('--save_dir', type=str, default='checkpoints_stage/', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
-    parser.add_argument('--model-type', type=str, default='dunet', help='模型类别')
+    parser.add_argument('--model-type', type=str, default='punet', help='模型类别')
     return parser.parse_args()
 
 
