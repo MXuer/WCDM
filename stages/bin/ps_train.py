@@ -22,24 +22,43 @@ from torch.utils.data import ConcatDataset
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.dataset.dataset_distraction_threepath_spilt import WSCMDataset
-from stages.dataset.d_dataset import D_Dataset
-from stages.model.D_model import DUNET
+from stages.dataset.p_dataset import P_Dataset
+from stages.model.P_model import PUNET
 
 torch.manual_seed(42)
 
 def get_args():
     parser = argparse.ArgumentParser(description='训练WCDM模型')
-    parser.add_argument('--data_dir', type=str, default='/data/duhu/WCDM/data_stages/rician_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_124842', help='训练数据目录')
-    parser.add_argument('--test_dir', type=str, default='/data/duhu/WCDM/data_stages/rician_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250709_125145', help='测试数据目录')
+    parser.add_argument(
+        '--data_dir', 
+        type=list, 
+        default=[
+                    'data_stages/rician_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_002000',
+                    'data_stages/rician_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_124842',
+                    'data_stages/layleigh_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_145857'
+                ], 
+        help='训练数据目录'
+    )
+    parser.add_argument(
+        '--test_dir', 
+        type=list, 
+        default=[
+                    'data_stages/rician_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250709_125145',
+                    'data_stages/rician_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250708_092954',
+                    'data_stages/layleigh_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_145955',
+                    'data_stages/rician_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_231751'
+                ],
+        help='测试数据目录'
+    )
     parser.add_argument('--batch_size', type=int, default=256, help='批大小')
     parser.add_argument('--epochs', type=int, default=50, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
     parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='logs_stage_integer/', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='checkpoints_stage_integer/', help='模型保存目录')
+    parser.add_argument('--log_dir', type=str, default='logs_stage_mix/', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='checkpoints_stage_mix/', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
-    parser.add_argument('--model-type', type=str, default='dunet', help='模型类别')
+    parser.add_argument('--model-type', type=str, default='punet', help='模型类别')
     return parser.parse_args()
 
 
@@ -63,10 +82,9 @@ def train(args):
     os.makedirs(args.save_dir, exist_ok=True)
     
 
-    data_dir = Path(args.data_dir) / args.model_type
 
-    args.log_dir = Path(args.log_dir) / f'{data_dir.name}'
-    args.save_dir = Path(args.save_dir) / f'{data_dir.name}'
+    args.log_dir = Path(args.log_dir) / args.model_type
+    args.save_dir = Path(args.save_dir) / args.model_type
 
     args.log_dir.mkdir(parents=True, exist_ok=True)
     args.save_dir.mkdir(parents=True, exist_ok=True)
@@ -76,13 +94,9 @@ def train(args):
     
     # 加载数据集
     print(f"加载测试数据集: {args.test_dir}")
-    test_dataset = []
-    for each in list(Path(args.test_dir).glob('*')):
-        print(f'reading {each}...')
-        test_dataset.append(D_Dataset(each))
-    test_dataset = ConcatDataset(test_dataset)
+    test_dataset = P_Dataset(args.test_dir)
     print(f"加载训练数据集: {args.data_dir}")
-    train_dataset = D_Dataset(args.data_dir)
+    train_dataset = P_Dataset(args.data_dir)
     # # 划分训练集和验证集
     # val_size = int(len(train_dataset) * args.val_ratio)
     # train_size = len(train_dataset) - val_size
@@ -96,7 +110,7 @@ def train(args):
     val_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 初始化模型
-    model = DUNET()
+    model = PUNET()
     print(model)
     model = model.to(args.device)
     

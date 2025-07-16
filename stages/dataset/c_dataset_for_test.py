@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-class C_Dataset(Dataset):
+class C_Dataset_forTest(Dataset):
     def __init__(self, data_dir, debug=False) -> None:
         super().__init__()
         self.h5_files = list(Path(data_dir).glob('*.h5'))
@@ -20,6 +20,7 @@ class C_Dataset(Dataset):
         with h5py.File(self.h5_files[index], 'r') as f:
             channel_estimates = np.array(f['channel_estimates'])  # (2,3)
             finger_data_channel_signal = np.array(f['finger_data_channel_signal'])  # (2,3,160)
+            # output = np.array(f['original_bit'])  # (160,)
             output = np.array(f['rake_output'])  # (160,)
             
             if self.debug_mode and index == 0:
@@ -28,7 +29,7 @@ class C_Dataset(Dataset):
                 print("实际原始数据维度:")
                 print(f"信道估计(channel_estimates): {channel_estimates.shape}")
                 print(f"时序信号(finger_data_channel_signal): {finger_data_channel_signal.shape}")
-                print(f"输出标签(rake_output): {output.shape}")
+                print(f"输出标签(original_bit): {output.shape}")
 
         # === 2. 调整维度顺序 ===
         channel_estimates = channel_estimates.T  # (3,2)
@@ -69,7 +70,7 @@ class C_Dataset(Dataset):
             print("\n维度重排:")
             print(f"最终输入维度: {final_input.shape}")
             print("物理意义: 天线数(3)×特征数(4)×时间步长(160)")
-        output = (torch.from_numpy(output) >= 0).float()
+
         return final_input, output
 
 
@@ -77,7 +78,7 @@ if __name__ == "__main__":
     data_dir = "/data/duhu/WCDM/data_stages/rician_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250708_092954/snr_-8dB"
     
     # 创建数据集实例 (开启调试模式)
-    cset = C_Dataset(data_dir, debug=True)
+    cset = C_Dataset_forTest(data_dir, debug=True)
     
     # 创建数据加载器
     dataloader = DataLoader(cset, batch_size=16, shuffle=True)

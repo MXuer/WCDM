@@ -10,7 +10,12 @@ from torch.utils.data import Dataset, DataLoader
 class D_Dataset(Dataset):
     def __init__(self, data_dir) -> None:
         super().__init__()
-        self.h5_files = list(Path(data_dir).glob('*.h5'))
+        self.h5_files = []
+        if type(data_dir) == str:
+            self.h5_files = list(Path(data_dir).rglob('*.h5'))
+        elif type(data_dir) == list:
+            for dir in data_dir:
+                self.h5_files += list(Path(dir).rglob('*.h5'))
         print(f'loading {len(self.h5_files)} H5 files...')
         
     def __len__(self):

@@ -12,6 +12,8 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from stages.model.C_model import CUNET
 from stages.dataset.c_dataset import C_Dataset
+from stages.model.C_cnn4channel import WCDMAFingerCNN4
+from stages.dataset.c_dataset_for_test import C_Dataset_forTest
 
 def get_args():
     parser = argparse.ArgumentParser(description='测试WCDM模型')
@@ -19,15 +21,21 @@ def get_args():
     parser.add_argument('--batch_size', type=int, default=160 * 80, help='批大小')
     parser.add_argument('--model_path', type=str, default='checkpoints_stage/cunet/best_model.pth', help='模型路径')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='测试设备')
-    parser.add_argument('--threshold', type=float, default=0.5, help='二值化阈值')
+    parser.add_argument('--threshold', type=float, default=0, help='二值化阈值')
     parser.add_argument('--model-type', type=str, default='cunet', help='模型类别')
     return parser.parse_args()
 
 
-def calculate_metrics(outputs, targets, threshold=0.5):
+def calculate_metrics(outputs, targets, threshold=0):
     """计算模型性能指标"""
     # 将输出二值化
     predictions = (outputs >= threshold).float()
+    print('-'*30)
+    print(predictions)
+    print(outputs)
+    print(targets)
+    targets = (targets >= threshold).float()
+    print(targets)
     
     # 计算准确率
     correct = (predictions == targets).float()
@@ -46,6 +54,8 @@ def test(args):
     # 一次性加载模型（放在循环外部）
     if args.model_type == "cunet":
         model = CUNET()
+    elif args.model_type == "cnn4":
+        model = WCDMAFingerCNN4()
     
     checkpoint = torch.load(args.model_path, map_location=args.device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -58,10 +68,10 @@ def test(args):
     # 遍历所有子文件夹
     sub_test_dirs = [d for d in Path(args.test_dir).iterdir() if d.is_dir()]
     for sub_dir in sub_test_dirs:
-        test_dataset = C_Dataset(sub_dir)
+        test_dataset = C_Dataset_forTest(sub_dir)
         test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
         
-        criterion = nn.BCELoss()
+        criterion = nn.MSELoss()
         test_loss = 0.0
         all_metrics = []
         
@@ -97,4 +107,4 @@ if __name__ == "__main__":
     print("\n测试结果汇总:")
     all_results = sorted(all_results, key=lambda x:float(x[0].split('_')[-1][:-2]))
     for path, loss, metrics in all_results:
-        print(f"目录: {Path(path).name}\t损失: {loss:.4f}\t准确率: {metrics['accuracy']:.6f}\t误码率: {metrics['bit_error_rate']:.6f}")
+        print(f"目录: {Path(path).name}\t损失: {loss:.6f}\t准确率: {metrics['accuracy']:.6f}\t误码率: {metrics['bit_error_rate']:.6f}")

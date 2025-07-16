@@ -23,6 +23,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from stages.dataset.c_dataset import C_Dataset
 from stages.model.C_model import CUNET
+from stages.model.C_cnn4channel import WCDMAFingerCNN4
 
 torch.manual_seed(42)
 
@@ -30,9 +31,9 @@ def get_args():
     parser = argparse.ArgumentParser(description='训练WCDM模型')
     parser.add_argument('--data_dir', type=str, default='data_stages/rician_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_002000', help='训练数据目录')
     parser.add_argument('--test_dir', type=str, default='/data/duhu/WCDM/data_stages/rician_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250708_092954', help='测试数据目录')
-    parser.add_argument('--batch_size', type=int, default=1024, help='批大小')
+    parser.add_argument('--batch_size', type=int, default=1024 * 20, help='批大小')
     parser.add_argument('--epochs', type=int, default=200, help='训练轮数')
-    parser.add_argument('--lr', type=float, default=0.001, help='学习率')
+    parser.add_argument('--lr', type=float, default=0.01, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
     parser.add_argument('--warmup_epochs', type=int, default=30, help='预热轮数')
     parser.add_argument('--log_dir', type=str, default='logs_stage/', help='TensorBoard日志目录')
@@ -95,7 +96,11 @@ def train(args):
     val_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
     
     # 初始化模型
-    model = CUNET()
+    if args.model_type == "cunet":
+        model = CUNET()
+    elif args.model_type == "cnn4":
+        model = WCDMAFingerCNN4()    
+    
     print(model)
     model = model.to(args.device)
     
