@@ -1,22 +1,38 @@
 import h5py
+import random
 import numpy as np
 from tqdm import tqdm
 from pathlib import Path
+from collections import defaultdict
 
 import torch
 from torch.utils.data import Dataset, DataLoader
 
 
 class D_Dataset(Dataset):
-    def __init__(self, data_dir) -> None:
+    def __init__(self, data_dir, val=False) -> None:
         super().__init__()
         self.h5_files = []
-        if type(data_dir) == str:
-            self.h5_files = list(Path(data_dir).rglob('*.h5'))
-        elif type(data_dir) == list:
+        if val == False:
+            if type(data_dir) == str:
+                self.h5_files = list(Path(data_dir).rglob('*.h5'))
+            elif type(data_dir) == list:
+                for dir in data_dir:
+                    print(f'loading {dir}...')
+                    self.h5_files += list(Path(dir).rglob('*.h5'))
+            print(f'loading {len(self.h5_files)} H5 files...')
+        else:
+            h5_files = []
             for dir in data_dir:
-                self.h5_files += list(Path(dir).rglob('*.h5'))
-        print(f'loading {len(self.h5_files)} H5 files...')
+                h5_files += list(Path(dir).rglob('*.h5'))
+            name2h5_files = defaultdict(list)
+            for h5_file in tqdm(h5_files):
+                name = f'{h5_file.parent.parent.stem}--{h5_file.parent.stem}'
+                name2h5_files[name].append(h5_file)
+            self.h5_files = []
+            for name, h5_files in name2h5_files.items():
+                self.h5_files += random.sample(h5_files, 100)
+            print(f'loading {len(self.h5_files)} H5 files...')
         
     def __len__(self):
         return len(self.h5_files) * 3

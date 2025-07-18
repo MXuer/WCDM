@@ -11,17 +11,17 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, random_split
+import torch.multiprocessing as mp
+import torch.distributed as dist
+from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
-from torch.utils.data import ConcatDataset
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.dataset.dataset_distraction_threepath_spilt import WSCMDataset
 from stages.dataset.p_dataset import P_Dataset
 from stages.model.P_model import PUNET
 
@@ -33,9 +33,14 @@ def get_args():
         '--data_dir', 
         type=list, 
         default=[
+                    'data_stages/rayleigh_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_145857',
+                    'data_stages/rayleigh_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085200',
+                    'data_stages/rayleigh_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF5_8SF20250716_230135',
+                    'data_stages/rayleigh_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_230157',
                     'data_stages/rician_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_002000',
                     'data_stages/rician_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_124842',
-                    'data_stages/layleigh_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_145857'
+                    'data_stages/rician_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_231751',
+                    'data_stages/rician_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085507'
                 ], 
         help='训练数据目录'
     )
@@ -43,18 +48,22 @@ def get_args():
         '--test_dir', 
         type=list, 
         default=[
-                    'data_stages/rician_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250709_125145',
+                    'data_stages/rayleigh_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_145955',
+                    'data_stages/rayleigh_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085214',
+                    'data_stages/rayleigh_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF5_8SF20250716_230127',
+                    'data_stages/rayleigh_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_230330',
                     'data_stages/rician_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250708_092954',
-                    'data_stages/layleigh_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_145955',
-                    'data_stages/rician_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_231751'
+                    'data_stages/rician_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250709_125145',
+                    'data_stages/rician_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_231619',
+                    'data_stages/rician_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085430'
                 ],
         help='测试数据目录'
     )
-    parser.add_argument('--batch_size', type=int, default=256, help='批大小')
-    parser.add_argument('--epochs', type=int, default=50, help='训练轮数')
+    parser.add_argument('--batch_size', type=int, default=320, help='批大小')
+    parser.add_argument('--epochs', type=int, default=30, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
-    parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
+    parser.add_argument('--warmup_epochs', type=int, default=5, help='预热轮数')
     parser.add_argument('--log_dir', type=str, default='logs_stage_mix/', help='TensorBoard日志目录')
     parser.add_argument('--save_dir', type=str, default='checkpoints_stage_mix/', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
@@ -75,28 +84,29 @@ def get_lr_scheduler(optimizer, warmup_epochs, total_epochs):
     
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
-
-def train(args):
-    # 创建日志和保存目录
-    os.makedirs(args.log_dir, exist_ok=True)
-    os.makedirs(args.save_dir, exist_ok=True)
+def set_up(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12345'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
     
+    
+def cleanup():
+    dist.destroy_process_group()
 
-
-    args.log_dir = Path(args.log_dir) / args.model_type
-    args.save_dir = Path(args.save_dir) / args.model_type
-
-    args.log_dir.mkdir(parents=True, exist_ok=True)
-    args.save_dir.mkdir(parents=True, exist_ok=True)
-
+def train(rank, world_size, args):
+    torch.cuda.set_device(rank)
+    set_up(rank, world_size)
+    args.device = f'cuda:{rank}'
     # 初始化TensorBoard
     writer = SummaryWriter(log_dir=args.log_dir)
-    
     # 加载数据集
     print(f"加载测试数据集: {args.test_dir}")
-    test_dataset = P_Dataset(args.test_dir)
+    test_dataset = P_Dataset(args.test_dir, val=True)
+    print(f'测试数据集数量: {len(test_dataset)}')
     print(f"加载训练数据集: {args.data_dir}")
     train_dataset = P_Dataset(args.data_dir)
+    print(f'训练数据集数量: {len(train_dataset)}')
+    sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank, shuffle=True)
     # # 划分训练集和验证集
     # val_size = int(len(train_dataset) * args.val_ratio)
     # train_size = len(train_dataset) - val_size
@@ -106,14 +116,14 @@ def train(args):
     print(f"训练集大小: {len(train_dataset)}, 验证集大小: {len(test_dataset)}")
     
     # 创建数据加载器
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    val_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=8, sampler=sampler)
+    val_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=8)
     
     # 初始化模型
     model = PUNET()
     print(model)
     model = model.to(args.device)
-    
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[rank])
     # 定义损失函数和优化器
     criterion = nn.MSELoss()  # 二元交叉熵损失，适用于0/1输出
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -172,100 +182,110 @@ def train(args):
         # 更新学习率
         current_lr = optimizer.param_groups[0]['lr']
         scheduler.step()
-        
-        train_losses.append(train_loss)
-        val_losses.append(val_loss)
-        lrs.append(current_lr)
+        if rank == 0:
+            train_losses.append(train_loss)
+            val_losses.append(val_loss)
+            lrs.append(current_lr)
 
-        # 记录到TensorBoard
-        writer.add_scalar('Loss/train', train_loss, epoch)
-        writer.add_scalar('Loss/val', val_loss, epoch)
-        writer.add_scalar('LearningRate', current_lr, epoch)
-        
-        print(f"Epoch {epoch+1}/{args.epochs} - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, LR: {current_lr:.6f}")
-
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'train_loss': train_loss,
-            'val_loss': val_loss,
-        }, os.path.join(args.save_dir, f'{epoch}.pth'))
-        
-        
-        # 保存最佳模型
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+            # 记录到TensorBoard
+            writer.add_scalar('Loss/train', train_loss, epoch)
+            writer.add_scalar('Loss/val', val_loss, epoch)
+            writer.add_scalar('LearningRate', current_lr, epoch)
+            print(f"Epoch {epoch+1}/{args.epochs} - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, LR: {current_lr:.6f}")
             torch.save({
                 'epoch': epoch,
-                'model_state_dict': model.state_dict(),
+                'model_state_dict': model.module.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'train_loss': train_loss,
                 'val_loss': val_loss,
-            }, os.path.join(args.save_dir, 'best_model.pth'))
-            print(f"保存最佳模型，验证损失: {val_loss:.4f}")
-        log_file = os.path.join(args.save_dir, f'epoch_{epoch}.json')
-        log_dict = {
-                'epoch': epoch,
-                'train_loss': train_loss,
-                'val_loss': val_loss,
-                'current_lr': current_lr
-            }
-        with open(log_file, 'w') as f:
-            f.write(json.dumps(log_dict, ensure_ascii=False, indent=2))
-
-    # 保存最终模型
-    torch.save({
-        'epoch': args.epochs,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'train_loss': train_loss,
-        'val_loss': val_loss,
-    }, os.path.join(args.save_dir, 'final_model.pth'))
+            }, os.path.join(args.save_dir, f'{epoch}.pth'))
+        
+            
+            # 保存最佳模型
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.module.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'train_loss': train_loss,
+                    'val_loss': val_loss,
+                }, os.path.join(args.save_dir, 'best_model.pth'))
+                print(f"保存最佳模型，验证损失: {val_loss:.4f}")
+            log_file = os.path.join(args.save_dir, f'epoch_{epoch}.json')
+            log_dict = {
+                    'epoch': epoch,
+                    'train_loss': train_loss,
+                    'val_loss': val_loss,
+                    'current_lr': current_lr
+                }
+            with open(log_file, 'w') as f:
+                f.write(json.dumps(log_dict, ensure_ascii=False, indent=2))
+    if rank == 0:
+        # 保存最终模型
+        torch.save({
+            'epoch': args.epochs,
+            'model_state_dict': model.module.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'train_loss': train_loss,
+            'val_loss': val_loss,
+        }, os.path.join(args.save_dir, 'final_model.pth'))
     
     writer.close()
     print("训练完成！")
 
-
-    # 绘制训练损失曲线
-    plt.figure(figsize=(12, 8))
-    
-    # 损失曲线
-    plt.subplot(2, 1, 1)
-    plt.plot(train_losses, 'b-', linewidth=2, label='Training Loss')
-    plt.plot(val_losses, 'r-', linewidth=2, label='Validation Loss')
-    plt.title('Training and Validation Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.grid(True)
-    
-    # 学习率曲线
-    plt.subplot(2, 1, 2)
-    plt.plot(lrs, 'g-', linewidth=2)
-    plt.title('Learning Rate Schedule')
-    plt.xlabel('Epoch')
-    plt.ylabel('Learning Rate')
-    plt.grid(True)
-    
-    plt.tight_layout()
-    plt.savefig(args.save_dir / 'training_progress.png', dpi=300)
-    print('训练过程曲线已保存为 training_progress.png')
-    
-    # 绘制损失曲线 (仅损失)
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_losses, 'b-', linewidth=2, label='Training Loss')
-    plt.plot(val_losses, 'r-', linewidth=2, label='Validation Loss')
-    plt.title('Training and Validation Loss', fontsize=14)
-    plt.xlabel('Epoch', fontsize=12)
-    plt.ylabel('Loss', fontsize=12)
-    plt.legend(fontsize=12)
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.tight_layout()
-    plt.savefig(args.save_dir / 'loss_curve.png', dpi=300)
-    print('损失曲线已保存为 loss_curve.png')
-
+    if rank == 0:
+        # 绘制训练损失曲线
+        plt.figure(figsize=(12, 8))
+        
+        # 损失曲线
+        plt.subplot(2, 1, 1)
+        plt.plot(train_losses, 'b-', linewidth=2, label='Training Loss')
+        plt.plot(val_losses, 'r-', linewidth=2, label='Validation Loss')
+        plt.title('Training and Validation Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.grid(True)
+        
+        # 学习率曲线
+        plt.subplot(2, 1, 2)
+        plt.plot(lrs, 'g-', linewidth=2)
+        plt.title('Learning Rate Schedule')
+        plt.xlabel('Epoch')
+        plt.ylabel('Learning Rate')
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.savefig(args.save_dir / 'training_progress.png', dpi=300)
+        print('训练过程曲线已保存为 training_progress.png')
+        
+        # 绘制损失曲线 (仅损失)
+        plt.figure(figsize=(10, 6))
+        plt.plot(train_losses, 'b-', linewidth=2, label='Training Loss')
+        plt.plot(val_losses, 'r-', linewidth=2, label='Validation Loss')
+        plt.title('Training and Validation Loss', fontsize=14)
+        plt.xlabel('Epoch', fontsize=12)
+        plt.ylabel('Loss', fontsize=12)
+        plt.legend(fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        plt.savefig(args.save_dir / 'loss_curve.png', dpi=300)
+        print('损失曲线已保存为 loss_curve.png')
+        
+    cleanup()
 
 if __name__ == "__main__":
     args = get_args()
-    train(args)
+    # 创建日志和保存目录
+    os.makedirs(args.log_dir, exist_ok=True)
+    os.makedirs(args.save_dir, exist_ok=True)
+
+    args.log_dir = Path(args.log_dir) / args.model_type
+    args.save_dir = Path(args.save_dir) / args.model_type
+
+    args.log_dir.mkdir(parents=True, exist_ok=True)
+    args.save_dir.mkdir(parents=True, exist_ok=True)
+
+    world_size = torch.cuda.device_count()
+    mp.spawn(train, args=(world_size, args,), nprocs=world_size)
