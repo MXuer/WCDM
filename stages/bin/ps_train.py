@@ -5,6 +5,7 @@
 """
 
 import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # 只打印 FATAL
 import sys
 import json
 import argparse
@@ -35,12 +36,12 @@ def get_args():
         default=[
                     'data_stages/rayleigh_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_145857',
                     'data_stages/rayleigh_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085200',
-                    'data_stages/rayleigh_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF5_8SF20250716_230135',
-                    'data_stages/rayleigh_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_230157',
+                    'data_stages_padding_perbit/rayleigh_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF5_8SF20250716_230135',
+                    'data_stages_padding_perbit/rayleigh_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_230157',
                     'data_stages/rician_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_002000',
                     'data_stages/rician_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_124842',
-                    'data_stages/rician_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_231751',
-                    'data_stages/rician_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085507'
+                    'data_stages_padding_perbit/rician_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_231751',
+                    'data_stages_padding_perbit/rician_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085507'
                 ], 
         help='训练数据目录'
     )
@@ -50,22 +51,22 @@ def get_args():
         default=[
                     'data_stages/rayleigh_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_145955',
                     'data_stages/rayleigh_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085214',
-                    'data_stages/rayleigh_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF5_8SF20250716_230127',
-                    'data_stages/rayleigh_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_230330',
+                    'data_stages_padding_perbit/rayleigh_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF5_8SF20250716_230127',
+                    'data_stages_padding_perbit/rayleigh_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_230330',
                     'data_stages/rician_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250708_092954',
                     'data_stages/rician_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250709_125145',
-                    'data_stages/rician_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_231619',
-                    'data_stages/rician_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085430'
+                    'data_stages_padding_perbit/rician_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_231619',
+                    'data_stages_padding_perbit/rician_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085430'
                 ],
         help='测试数据目录'
     )
-    parser.add_argument('--batch_size', type=int, default=320, help='批大小')
+    parser.add_argument('--batch_size', type=int, default=64, help='批大小')
     parser.add_argument('--epochs', type=int, default=30, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
-    parser.add_argument('--warmup_epochs', type=int, default=5, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='logs_stage_mix/', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='checkpoints_stage_mix/', help='模型保存目录')
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
+    parser.add_argument('--log_dir', type=str, default='log_stages_mix_pad_perbit_final/', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='ckpt_stages_mix_pad_perbit_final/', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
     parser.add_argument('--model-type', type=str, default='punet', help='模型类别')
     return parser.parse_args()
@@ -86,7 +87,7 @@ def get_lr_scheduler(optimizer, warmup_epochs, total_epochs):
 
 def set_up(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12345'
+    os.environ['MASTER_PORT'] = '12346'
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
     
     
@@ -114,10 +115,10 @@ def train(rank, world_size, args):
     train_size = len(train_dataset)
     val_size = len(test_dataset)
     print(f"训练集大小: {len(train_dataset)}, 验证集大小: {len(test_dataset)}")
-    
+    # return
     # 创建数据加载器
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=8, sampler=sampler)
-    val_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=0, sampler=sampler)
+    val_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     
     # 初始化模型
     model = PUNET()
@@ -134,15 +135,17 @@ def train(rank, world_size, args):
     # 训练循环
     best_val_loss = float('inf')
     train_losses, val_losses, lrs = [], [], []
+    num_steps = train_size // args.batch_size // world_size
     for epoch in range(args.epochs):
         # 训练阶段
         model.train()
         train_loss = 0.0
-        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} [Train]")
         
-        for inputs, targets in train_pbar:
+        for step, (inputs, targets) in enumerate(train_loader):
             inputs = inputs.to(args.device)
             targets = targets.to(args.device).float()  # 确保目标是浮点型
+            inputs = inputs.view(inputs.shape[0]*inputs.shape[1], inputs.shape[2], inputs.shape[3]).unsqueeze(1)
+            targets = targets.view(targets.shape[0]*targets.shape[1], targets.shape[2])
             
             # 前向传播
             optimizer.zero_grad()
@@ -157,26 +160,29 @@ def train(rank, world_size, args):
             
             # 更新统计
             train_loss += loss.item() * inputs.size(0)
-            train_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
-
+            if step % 10 == 0:
+                print(f"[TRAIN] RANK {rank} Epoch {epoch} | Step {step} / {num_steps}  => Loss: {loss.item():.4f}")
+            break
         train_loss /= train_size
+        train_loss *= world_size
         # 验证阶段
         model.eval()
         val_loss = 0.0
-        val_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{args.epochs} [Val]")
         
         with torch.no_grad():
-            for inputs, targets in val_pbar:
+            for inputs, targets in tqdm(val_loader, desc='processing valid data...'):
                 inputs = inputs.to(args.device)
                 targets = targets.to(args.device).float()
+                inputs = inputs.view(inputs.shape[0]*inputs.shape[1], inputs.shape[2], inputs.shape[3]).unsqueeze(1)
+                targets = targets.view(targets.shape[0]*targets.shape[1], targets.shape[2])
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
                 
                 val_loss += loss.item() * inputs.size(0)
-                val_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
-
-        
+                
         val_loss /= val_size
+        print(f"[VAL] RANK {rank} Step {step} Epoch {epoch} Loss: {val_loss}")
+        
         
 
         # 更新学习率

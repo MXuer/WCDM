@@ -29,15 +29,43 @@ torch.manual_seed(42)
 
 def get_args():
     parser = argparse.ArgumentParser(description='训练WCDM模型')
-    parser.add_argument('--data_dir', type=str, default='data_stages/rician_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_124842', help='训练数据目录')
-    parser.add_argument('--test_dir', type=str, default='data_stages/rician_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250709_125145', help='测试数据目录')
-    parser.add_argument('--batch_size', type=int, default=256, help='批大小')
-    parser.add_argument('--epochs', type=int, default=50, help='训练轮数')
+    parser.add_argument(
+        '--data_dir', 
+        type=list, 
+        default=[
+                    'data_stages/rayleigh_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_145857',
+                    'data_stages/rayleigh_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085200',
+                    'data_stages_padding_perbit/rayleigh_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF5_8SF20250716_230135',
+                    'data_stages_padding_perbit/rayleigh_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_230157',
+                    'data_stages/rician_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_002000',
+                    'data_stages/rician_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_124842',
+                    'data_stages_padding_perbit/rician_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_231751',
+                    'data_stages_padding_perbit/rician_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085507'
+                ], 
+        help='训练数据目录'
+    )
+    parser.add_argument(
+        '--test_dir', 
+        type=list, 
+        default=[
+                    'data_stages/rayleigh_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_145955',
+                    'data_stages/rayleigh_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085214',
+                    'data_stages_padding_perbit/rayleigh_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF5_8SF20250716_230127',
+                    'data_stages_padding_perbit/rayleigh_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_230330',
+                    'data_stages/rician_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250708_092954',
+                    'data_stages/rician_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250709_125145',
+                    'data_stages_padding_perbit/rician_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_231619',
+                    'data_stages_padding_perbit/rician_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085430'
+                ],
+        help='测试数据目录'
+    )
+    parser.add_argument('--batch_size', type=int, default=96, help='批大小')
+    parser.add_argument('--epochs', type=int, default=30, help='训练轮数')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
     parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='logs_stage_integer/', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='checkpoints_stage_integer/', help='模型保存目录')
+    parser.add_argument('--log_dir', type=str, default='log_stages_mix_pad_perbit_final/', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='ckpt_stages_mix_pad_perbit_final/', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
     parser.add_argument('--model-type', type=str, default='punet', help='模型类别')
     return parser.parse_args()
@@ -62,11 +90,8 @@ def train(args):
     os.makedirs(args.log_dir, exist_ok=True)
     os.makedirs(args.save_dir, exist_ok=True)
     
-
-    data_dir = Path(args.data_dir) / args.model_type
-
-    args.log_dir = Path(args.log_dir) / f'{data_dir.name}'
-    args.save_dir = Path(args.save_dir) / f'{data_dir.name}'
+    args.log_dir = Path(args.log_dir) / f'{args.model_type}'
+    args.save_dir = Path(args.save_dir) / f'{args.model_type}'
 
     args.log_dir.mkdir(parents=True, exist_ok=True)
     args.save_dir.mkdir(parents=True, exist_ok=True)
@@ -76,11 +101,7 @@ def train(args):
     
     # 加载数据集
     print(f"加载测试数据集: {args.test_dir}")
-    test_dataset = []
-    for each in list(Path(args.test_dir).glob('*')):
-        print(f'reading {each}...')
-        test_dataset.append(P_Dataset(each))
-    test_dataset = ConcatDataset(test_dataset)
+    test_dataset = P_Dataset(args.test_dir, val=True)
     print(f"加载训练数据集: {args.data_dir}")
     train_dataset = P_Dataset(args.data_dir)
     # # 划分训练集和验证集
@@ -119,6 +140,8 @@ def train(args):
         for inputs, targets in train_pbar:
             inputs = inputs.to(args.device)
             targets = targets.to(args.device).float()  # 确保目标是浮点型
+            inputs = inputs.view(inputs.shape[0]*inputs.shape[1], inputs.shape[2], inputs.shape[3]).unsqueeze(1)
+            targets = targets.view(targets.shape[0]*targets.shape[1], targets.shape[2])
             
             # 前向传播
             optimizer.zero_grad()
@@ -145,6 +168,8 @@ def train(args):
             for inputs, targets in val_pbar:
                 inputs = inputs.to(args.device)
                 targets = targets.to(args.device).float()
+                inputs = inputs.view(inputs.shape[0]*inputs.shape[1], inputs.shape[2], inputs.shape[3]).unsqueeze(1)
+                targets = targets.view(targets.shape[0]*targets.shape[1], targets.shape[2])
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
                 

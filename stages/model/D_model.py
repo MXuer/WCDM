@@ -25,7 +25,7 @@ class DUNET(nn.Module):
 
         self.up = lambda x: F.interpolate(x, scale_factor=(2, 1), mode='bilinear', align_corners=False)
 
-        self.decoder2 = ConvBlock(64 + 64, 64, stride=4)
+        self.decoder2 = ConvBlock(64 + 64, 64, stride=2)
         self.decoder1 = ConvBlock(64 + 32, 32, stride=2)
         self.final = ConvBlock(32, 2, stride=(1, 1))  # 1280 -> 320
 
@@ -40,16 +40,16 @@ class DUNET(nn.Module):
         t_out = self.transformer(m_flat)
         m = t_out.reshape(B, H, W, C).permute(0, 3, 1, 2)  # [B, 256, 320, 4]
         d2 = self.up(m)                         # [B, 128, 1280, 4]
-        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(640, 4), mode='bilinear', align_corners=False)], dim=1))
+        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(320, 4), mode='bilinear', align_corners=False)], dim=1))
 
         d1 = self.up(d2)                         # [B, 64, 2560, 4]
-        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(320, 1), mode='bilinear', align_corners=False)], dim=1))
+        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(320, 2), mode='bilinear', align_corners=False)], dim=1))
         out = self.final(d1).squeeze(3)                     # [B, 160]
         return out        
     
     
 if __name__=="__main__":
-    x = torch.randn(1, 1, 10240, 4)  # Reduce batch size if needed
+    x = torch.randn(1, 1, 5120, 4)  # Reduce batch size if needed
     model = DUNET()
     print(x.shape)
     y = model(x)

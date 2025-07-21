@@ -19,6 +19,8 @@ class P_Dataset(Dataset):
                 for dir in data_dir:
                     print(f'loading {dir}...')
                     self.h5_files += list(Path(dir).rglob('*.h5'))
+            random.shuffle(self.h5_files)
+            self.h5_files = self.h5_files[:200000]
             print(f'loading {len(self.h5_files)} H5 files...')
         else:
             h5_files = []
@@ -34,18 +36,16 @@ class P_Dataset(Dataset):
             print(f'loading {len(self.h5_files)} H5 files...')
             
     def __len__(self):
-        return len(self.h5_files) * 3
+        return len(self.h5_files)
 
     def __getitem__(self, index):
         # channel_estimates (3, 2)
         # finger_data_channel_signal (160, 3, 2)
-        file_index = index // 3
-        data_index = index % 3
-        with h5py.File(self.h5_files[file_index], 'r') as f:
+        with h5py.File(self.h5_files[index], 'r') as f:
             receive_signal_data = np.array(f['receive_signal_pilot']).T
             channel_estimates = np.array(f['channel_estimates']).T
-        receive_signal_data = torch.from_numpy(receive_signal_data).float().permute(2, 1, 0)[data_index, :, :].unsqueeze(0)
-        channel_estimates = torch.from_numpy(channel_estimates)[data_index, :]
+        receive_signal_data = torch.from_numpy(receive_signal_data).float().permute(2, 1, 0)
+        channel_estimates = torch.from_numpy(channel_estimates)
         return receive_signal_data, channel_estimates
 
 
@@ -63,7 +63,7 @@ if __name__=="__main__":
                 ]
     cset = P_Dataset(data_dir, val=True)
     print(len(cset))
-    # dataloader = DataLoader(cset, batch_size=1, shuffle=True)
-    # for input, output in tqdm(dataloader):
-    #     print(input.shape, output.shape)
-    #     break
+    dataloader = DataLoader(cset, batch_size=1, shuffle=True)
+    for input, output in tqdm(dataloader):
+        print(input.shape, output.shape)
+        break

@@ -30,7 +30,7 @@ class PUNET(nn.Module):
         self.blayer = ConvBlock(32, 2, stride=(1, 1))  # 1280 -> 320
         self.final = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(320, 128),
+            nn.Linear(160, 128),
             nn.Dropout(0.3),
             nn.ReLU(),
             nn.Linear(128, 2),
@@ -46,17 +46,17 @@ class PUNET(nn.Module):
         t_out = self.transformer(m_flat)
         m = t_out.reshape(B, H, W, C).permute(0, 3, 1, 2)  # [B, 256, 320, 4]
         d2 = self.up(m)                         # [B, 128, 1280, 4]
-        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(640, 4), mode='bilinear', align_corners=False)], dim=1))
+        d2 = self.decoder2(torch.cat([d2, F.interpolate(e2, size=(320, 4), mode='bilinear', align_corners=False)], dim=1))
 
         d1 = self.up(d2)                         # [B, 64, 2560, 4]
-        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(320, 1), mode='bilinear', align_corners=False)], dim=1))
+        d1 = self.decoder1(torch.cat([d1, F.interpolate(e1, size=(160, 1), mode='bilinear', align_corners=False)], dim=1))
         d1 = self.blayer(d1)                       # [B, 2, 1280, 4]
         out = self.final(d1)                     # [B, 160]
         return out        
     
     
 if __name__=="__main__":
-    x = torch.randn(1, 1, 10240, 4)  # Reduce batch size if needed
+    x = torch.randn(1, 1, 5120, 4)  # Reduce batch size if needed
     model = PUNET()
     print(x.shape)
     y = model(x)
