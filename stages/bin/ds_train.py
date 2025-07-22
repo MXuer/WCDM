@@ -34,14 +34,10 @@ def get_args():
         '--data_dir', 
         type=list, 
         default=[
-                    'data_stages/rayleigh_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_145857',
-                    'data_stages/rayleigh_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085200',
-                    'data_stages_padding_perbit/rayleigh_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF5_8SF20250716_230135',
-                    'data_stages_padding_perbit/rayleigh_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_230157',
-                    'data_stages/rician_channel/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_002000',
-                    'data_stages/rician_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_124842',
-                    'data_stages_padding_perbit/rician_channel_8SF/fraction_delay/SF16_train_uniform_dataSet_160Bit_HDF520250714_231751',
-                    'data_stages_padding_perbit/rician_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085507'
+                    'data_sfs/rayleigh_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085200',
+                    'data_sfs/rayleigh_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_230157',
+                    'data_sfs/rician_channel/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250709_124842',
+                    'data_sfs/rician_channel_8SF/integer_delay/SF16_train_uniform_dataSet_160Bit_HDF520250716_085507'
                 ], 
         help='训练数据目录'
     )
@@ -49,14 +45,10 @@ def get_args():
         '--test_dir', 
         type=list, 
         default=[
-                    'data_stages/rayleigh_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_145955',
-                    'data_stages/rayleigh_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085214',
-                    'data_stages_padding_perbit/rayleigh_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF5_8SF20250716_230127',
-                    'data_stages_padding_perbit/rayleigh_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_230330',
-                    'data_stages/rician_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250708_092954',
-                    'data_stages/rician_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250709_125145',
-                    'data_stages_padding_perbit/rician_channel_8SF/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_231619',
-                    'data_stages_padding_perbit/rician_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085430'
+                    'data_sfs/rayleigh_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085214',
+                    'data_sfs/rayleigh_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_230330',
+                    'data_sfs/rician_channel/integer_delay/SF16_test_dataSet_160Bit_HDF520250709_125145',
+                    'data_sfs/rician_channel_8SF/integer_delay/SF16_test_dataSet_160Bit_HDF520250716_085430'
                 ],
         help='测试数据目录'
     )
@@ -65,8 +57,8 @@ def get_args():
     parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='验证集比例')
     parser.add_argument('--warmup_epochs', type=int, default=10, help='预热轮数')
-    parser.add_argument('--log_dir', type=str, default='log_stages_mix_pad_perbit_final/', help='TensorBoard日志目录')
-    parser.add_argument('--save_dir', type=str, default='ckpt_stages_mix_pad_perbit_final/', help='模型保存目录')
+    parser.add_argument('--log_dir', type=str, default='log_sfs/', help='TensorBoard日志目录')
+    parser.add_argument('--save_dir', type=str, default='ckpt_sfs/', help='模型保存目录')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='训练设备')
     parser.add_argument('--model-type', type=str, default='dunet', help='模型类别')
     return parser.parse_args()

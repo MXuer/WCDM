@@ -21,7 +21,7 @@ class D_Dataset(Dataset):
                     print(f'loading {dir}...')
                     self.h5_files += list(Path(dir).rglob('*.h5'))
             random.shuffle(self.h5_files)
-            self.h5_files = self.h5_files[:200000]
+            self.h5_files = self.h5_files[:300000]
             print(f'loading {len(self.h5_files)} H5 files...')
         else:
             h5_files = []
@@ -33,7 +33,7 @@ class D_Dataset(Dataset):
                 name2h5_files[name].append(h5_file)
             self.h5_files = []
             for name, h5_files in name2h5_files.items():
-                self.h5_files += random.sample(h5_files, 100)
+                self.h5_files += random.sample(h5_files, 200)
             print(f'loading {len(self.h5_files)} H5 files...')
         
     def __len__(self):

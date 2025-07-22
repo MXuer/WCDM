@@ -17,10 +17,10 @@ from stages.model.P_model import PUNET
 
 def get_args():
     parser = argparse.ArgumentParser(description='测试WCDM模型')
-    parser.add_argument('--test_dir', type=str, default='/data/duhu/WCDM/data_stages/rayleigh_channel/fraction_delay/SF16_test_dataSet_160Bit_HDF520250714_145955', help='测试数据目录')
-    parser.add_argument('--batch_size', type=int, default=512, help='批大小')
-    parser.add_argument('--data-model', type=str, default='ckpt_stages_mix_pad_perbit/dunet/best_model.pth', help='模型路径')
-    parser.add_argument('--pilot-model', type=str, default='checkpoints_stage_mix/punet/best_model.pth', help='模型路径')
+    parser.add_argument('--test_dir', type=str, default='/data/duhu/WCDM/data_sfs/32SF/rayleigh_channel_32SF/integer_delay/SF32_test_dataSet_160Bit_HDF520250721_145245', help='测试数据目录')
+    parser.add_argument('--batch_size', type=int, default=1600, help='批大小')
+    parser.add_argument('--data-model', type=str, default='/data/duhu/WCDM/ckpt_sfs3/dunet/best_model.pth', help='模型路径')
+    parser.add_argument('--pilot-model', type=str, default='/data/duhu/WCDM/ckpt_sfs3/punet/best_model.pth', help='模型路径')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu', help='测试设备')
     parser.add_argument('--threshold', type=float, default=0, help='二值化阈值')
     parser.add_argument('--model-type', type=str, default='cunet', help='模型类别')
